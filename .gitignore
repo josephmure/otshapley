@@ -1,2 +1,5 @@
 # Compiled python
 *.pyc
+
+# Visual studio files
+*.vs
