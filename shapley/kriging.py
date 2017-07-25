@@ -39,6 +39,9 @@ class KrigingIndices(object):
         n_bootstrap : int,
             The number of bootstrap samples.
         """
+        input_sample_1 = np.asarray(self.input_distribution.getSample(n_sample))
+        input_sample_2 = np.asarray(self.input_distribution.getSample(n_sample))
+
         input_design = np.asarray(ot.SobolIndicesAlgorithmImplementation.Generate(self.input_distribution, n_sample, with_second_order))
         kriging_vector = ot.KrigingRandomVector(self.kriging_result, input_design)
         output_designs = np.asarray(kriging_vector.getSample(n_realization)).T
@@ -60,3 +63,16 @@ class KrigingIndices(object):
                 first_indices[:, i_nz, i_b] = np.asarray(sensitivity_boot.getFirstOrderIndices())
                 
         return first_indices
+
+
+    
+def compute_indices(func, input_sample_1, input_sample_2):
+    """
+    """
+    indices = np.zeros((dim,))
+    for i in range(dim):
+        X = input_sample_1
+        Xt = input_sample_2.copy()
+        Xt[:, i] = input_sample_1[:, i]
+        indices[i] = janon_estimator(func, X, Xt)
+    return indices
