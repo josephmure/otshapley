@@ -1,8 +1,15 @@
-# Compiled python
+# Compiled files
+*.pyd
 *.pyc
 
-# Visual studio files
-*.vs
+# Visual Studio project files
+*.pyproj
+*.sln
+*.suo
+.vs/
 
-# ipynb
-*.ipynb_checkpoints
+# Jupyter notebook files
+.ipynb_checkpoints/
+
+# Setuptools files
+*.egg-info
