@@ -60,12 +60,13 @@ class KrigingIndices(object):
             # Sample the realizations of the input design
             output_designs = self.kriging_function(input_design, n_realization=n_realization)
 
+            boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
             # TODO: make this as a cython function
             for i_nz in range(n_realization):
                 output_design = output_designs[:, i_nz]
                 Y = output_design[:n_sample]
                 Yt = output_design[n_sample:]
-                first_indices[i, i_nz, :] = compute_indice(Y, Yt, n_boot=n_boot)
+                first_indices[i, i_nz, :] = compute_indice(Y, Yt, n_boot=n_boot, boot_idx=boot_idx)
                 
         return first_indices
 
@@ -83,7 +84,7 @@ def compute_indices(func, input_sample_1, input_sample_2, n_boot=1):
         first_indices[i, :] = compute_indice(Y, Yt, n_boot=n_boot)
     return first_indices
     
-def compute_indice(Y, Yt, n_boot=1):
+def compute_indice(Y, Yt, n_boot=1, boot_idx=None):
     """
     """
     n_sample = Y.shape[0]
@@ -91,7 +92,8 @@ def compute_indice(Y, Yt, n_boot=1):
 
     first_indice = np.zeros((n_boot, ))
     first_indice[0] = janon_estimator(Y, Yt)
-    boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+    if boot_idx is None:
+        boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
     first_indice[1:] = janon_estimator(Y[boot_idx], Yt[boot_idx])
 
     if n_boot == 1:
