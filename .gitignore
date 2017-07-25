@@ -3,3 +3,6 @@
 
 # Visual studio files
 *.vs
+
+# ipynb
+*.ipynb_checkpoints
