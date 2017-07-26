@@ -115,14 +115,23 @@ def janon_estimator(Y, Yt):
     return partial / total
 
 
-def create_indices_df(first_indices):
+def create_df_from_gp_indices(first_indices):
     """
     """
-    dim, n_realization, n_boot = first_indices.shape    
+    dim, n_realization, n_boot = first_indices.shape
     columns = ['S_%d' % (i+1) for i in range(dim)]
     df1 = pd.DataFrame(first_indices.mean(axis=2).T, columns=columns)
     df2 = pd.DataFrame(first_indices.mean(axis=1).T, columns=columns)
     df = pd.concat([df1, df2])
     df['Error'] = pd.DataFrame(['Kriging error']*n_realization + ['MC error']*n_boot)
     df = pd.melt(df, id_vars=['Error'], value_vars=columns, var_name='Variables', value_name='Indice values')
+    return df
+
+def create_df_from_indices(first_indices):
+    """
+    """
+    dim, n_boot = first_indices.shape
+    columns = ['S_%d' % (i+1) for i in range(dim)]
+    df = pd.DataFrame(first_indices.T, columns=columns)
+    df = pd.melt(df, value_vars=columns, var_name='Variables', value_name='Indice values')
     return df
