@@ -17,16 +17,19 @@ def set_style_paper():
     })
 
 
-def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8, 4), xlim=None):
+def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8, 4), xlabel=None, ylim=None, ax=None):
     """
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
     sns.violinplot(data=first_indices, ax=ax, label='First order indices')
     if true_indices is not None:
         ax.plot(true_indices, 'yo', markersize=13, label='True indices')
-    ax.set_ylim(xlim)
-    ax.set_xlabel('Variables')
+    ax.set_ylim(ylim)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
     ax.set_ylabel('Sobol Indices')
     ax.legend(loc=0)
     ax.set_title(title)
-    fig.tight_layout()
+    if ax is None:
+        fig.tight_layout()

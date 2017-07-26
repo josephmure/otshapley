@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import openturns as ot
 
 
@@ -112,3 +113,16 @@ def janon_estimator(Y, Yt):
     partial = (Y * Yt).mean(axis=1) - ((Y + Yt).mean(axis=1)*0.5)**2
     total = (Y**2).mean(axis=1) - ((Y + Yt).mean(axis=1)*0.5)**2
     return partial / total
+
+
+def create_indices_df(first_indices):
+    """
+    """
+    dim, n_realization, n_boot = first_indices.shape    
+    columns = ['S_%d' % (i+1) for i in range(dim)]
+    df1 = pd.DataFrame(first_indices.mean(axis=2).T, columns=columns)
+    df2 = pd.DataFrame(first_indices.mean(axis=1).T, columns=columns)
+    df = pd.concat([df1, df2])
+    df['Error'] = pd.DataFrame(['Kriging error']*n_realization + ['MC error']*n_boot)
+    df = pd.melt(df, id_vars=['Error'], value_vars=columns, var_name='Variables', value_name='Indice values')
+    return df
