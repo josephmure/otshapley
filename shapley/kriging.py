@@ -11,7 +11,7 @@ class KrigingIndices(object):
         self.input_distribution = input_distribution
         self.dim = input_distribution.getDimension()
         
-    def build_model(self, n_sample_kriging=100, basis_type='linear', kernel='matern'):
+    def build_model(self, n_sample_kriging=100, basis_type='linear', kernel='matern', sampling='lhs'):
         """Build the Kriging model.
         """
         dim = self.dim
@@ -20,7 +20,12 @@ class KrigingIndices(object):
         if kernel == 'matern':
             covariance = ot.MaternModel(dim)
 
-        input_sample = self.input_distribution.getSample(n_sample_kriging)
+        if sampling == 'lhs':
+            lhs = ot.LHSExperiment(self.input_distribution, n_sample_kriging)
+            input_sample = lhs.generate()
+        elif sampling == 'monte-carlo':
+            input_sample = self.input_distribution.getSample(n_sample_kriging)
+
         output_sample = self.model(input_sample)
 
         kriging_algo = ot.KrigingAlgorithm(input_sample, output_sample, covariance, basis)
