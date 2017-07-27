@@ -11,7 +11,7 @@ class Indices(object):
         self.dim = input_distribution.getDimension()
         self.first_order_indice_func = None
 
-    def build_mc_sample(self, n_sample, model, n_realization=1):
+    def build_mc_sample(self, model, n_sample):
         """Build the Monte-Carlo samples.
         """
         dim = self.dim
@@ -19,15 +19,14 @@ class Indices(object):
         input_sample_2 = np.asarray(self.input_distribution.getSample(n_sample))
         
         # The modified samples for each dimension
-        all_input_sample_2 = np.zeros((dim, n_sample, dim))
         all_output_sample_2 = np.zeros((n_sample, dim))
+
+        X = input_sample_1
         for i in range(dim):
             Xt = input_sample_2.copy()
-            Xt[:, i] = input_sample_1[:, i]
-            Yt = model(Xt)
-            all_input_sample_2[:, :, i] = Xt.T
-            all_output_sample_2[:, i] = Yt
-        
+            Xt[:, i] = X[:, i]
+            all_output_sample_2[:, i] = model(Xt)
+
         self.output_sample_1 = model(input_sample_1)
         self.all_output_sample_2 = all_output_sample_2
 
@@ -88,11 +87,37 @@ class KrigingIndices(object):
         def meta_model(X, n_realization=1):
             kriging_vector = ot.KrigingRandomVector(kriging_result, X)
             output = np.asarray(kriging_vector.getSample(n_realization)).T
-            return output if n_realization > 1 else output.ravel()
+            return output.squeeze()
 
         return meta_model
         
-    def compute_indices(self, n_boot=50, n_realization=1, estimator='janon'):
+    def build_mc_sample(self, model, n_sample=100, n_realization=10, evaluate_together=True):
+        """Build the Monte-Carlo samples.
+        """
+        dim = self.dim
+        input_sample_1 = np.asarray(self.input_distribution.getSample(n_sample))
+        input_sample_2 = np.asarray(self.input_distribution.getSample(n_sample))
+        
+        # The modified samples for each dimension
+        all_output_sample_2 = np.zeros((n_sample, dim, n_realization))
+        output_sample_1 = np.zeros((n_sample, dim, n_realization))
+
+        X = input_sample_1
+        for i in range(dim):
+            Xt = input_sample_2.copy()
+            Xt[:, i] = X[:, i]
+            if evaluate_together:
+                output_sample_i = model(np.r_[X, Xt], n_realization)
+                output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
+                all_output_sample_2[:, i, :] = output_sample_i[n_sample:, :]
+            else:
+                output_sample_1[:, i, :] = model(X, n_realization)
+                all_output_sample_2[:, i, :] = model(Xt, n_realization)
+            
+        self.output_sample_1 = output_sample_1
+        self.all_output_sample_2 = all_output_sample_2
+
+    def compute_indices(self, n_boot=50, estimator='janon', indiv_bootstraps=False):
         """Compute the indices.
 
         Parameters
@@ -105,13 +130,17 @@ class KrigingIndices(object):
             The number of bootstrap samples.
         """
         dim = self.dim
+        n_sample = self.output_sample_1.shape[0]
+        n_realization = self.output_sample_1.shape[2]
+
+        boot_idx = None
         first_indices = np.zeros((dim, n_realization, n_boot))
-        Y = self.output_sample_1
         for i in range(dim):
-            Yt = self.all_output_sample_2[:, i]
-            n_sample = Yt.shape[0]
-            for i_nz in range(n_realization):
+            if not indiv_bootstraps:
                 boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+            for i_nz in range(n_realization):
+                Y = self.output_sample_1[:, i, i_nz]
+                Yt = self.all_output_sample_2[:, i, i_nz]
                 first_indices[i, i_nz, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
 
         return first_indices
@@ -136,6 +165,7 @@ def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, bo
         first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
     return first_indices
     
+
 def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon'):
     """Compute the Sobol indices from the to
 
@@ -186,7 +216,7 @@ def create_df_from_gp_indices(first_indices, mean_method=True):
     df = pd.melt(df, id_vars=['Error'], value_vars=columns, var_name='Variables', value_name='Indice values')
     return df
 
-def create_df_from_indices(first_indices):
+def create_df_from_mc_indices(first_indices):
     """
     """
     dim, n_boot = first_indices.shape
