@@ -23,5 +23,5 @@ setup(
     license='MIT',
     keywords='sensitivity analysis shapley',
     packages=['shapley'],
-    install_requires=['numpy', 'matplotlib']
+    install_requires=['numpy', 'matplotlib', 'seaborn', 'pandas']
 )
