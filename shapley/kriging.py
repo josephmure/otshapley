@@ -2,64 +2,40 @@ import numpy as np
 import pandas as pd
 import openturns as ot
 
-
-class Indices(object):
-    """Template APIs of the sensitivity indices computation.
-    """
-    def __init__(self, input_distribution):
-        self.input_distribution = input_distribution
-        self.dim = input_distribution.getDimension()
-        self.first_order_indice_func = None
-
-    def build_mc_sample(self, model, n_sample):
-        """Build the Monte-Carlo samples.
-        """
-        dim = self.dim
-        input_sample_1 = np.asarray(self.input_distribution.getSample(n_sample))
-        input_sample_2 = np.asarray(self.input_distribution.getSample(n_sample))
-        
-        # The modified samples for each dimension
-        all_output_sample_2 = np.zeros((n_sample, dim))
-
-        X = input_sample_1
-        for i in range(dim):
-            Xt = input_sample_2.copy()
-            Xt[:, i] = X[:, i]
-            all_output_sample_2[:, i] = model(Xt)
-
-        self.output_sample_1 = model(input_sample_1)
-        self.all_output_sample_2 = all_output_sample_2
-
-    def compute_indices(self, n_boot=1, estimator='janon'):
-        """Compute the indices
-        """
-        dim = self.dim
-        first_indices = np.zeros((dim, n_boot))
-        Y = self.output_sample_1
-        for i in range(dim):
-            Yt = self.all_output_sample_2[:, i]
-            first_indices[i, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, estimator=estimator)
-
-        return first_indices
+from .base import Base
 
 
-class SobolIndices(Indices):
-    """
-    """
-    def __init__(self, input_distribution):
-        super(self.__class__, self).__init__(input_distribution)
-        self.first_order_indice_func = first_order_sobol_indice
-
-
-class KrigingIndices(object):
+class KrigingIndices(Base):
     """Estimate indices using a kriging based metamodel.
+
+    Parameters
+    ----------
+    input_distribution : ot.DistributionImplementation,
+        And OpenTURNS distribution object.
     """
     def __init__(self, input_distribution):
-        self.input_distribution = input_distribution
-        self.dim = input_distribution.getDimension()
+        Base.__init__(self, input_distribution)
         
-    def build_meta_model(self, model, n_sample_kriging=100, basis_type='linear', kernel='matern', sampling='lhs'):
+    def build_meta_model(self, model, n_sample=100, basis_type='linear', kernel='matern', sampling='lhs'):
         """Build the Kriging model.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function to approximate.
+        n_sample : int,
+            The sampling size.
+        basis_type : str,
+            The type of basis to use for the kriging model.
+        kernel : str,
+            The kernel to use.
+        sampling : str,
+            The sampling method to use.
+
+        Returns
+        -------
+        meta_model : callable,
+            A stochastic function of the built kriging model.
         """
         dim = self.dim
         if basis_type == 'linear':
@@ -71,10 +47,10 @@ class KrigingIndices(object):
             covariance = ot.MaternModel(dim)
 
         if sampling == 'lhs':
-            lhs = ot.LHSExperiment(self.input_distribution, n_sample_kriging)
+            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
             input_sample = lhs.generate()
         elif sampling == 'monte-carlo':
-            input_sample = self.input_distribution.getSample(n_sample_kriging)
+            input_sample = self._input_distribution.getSample(n_sample)
 
         output_sample = model(input_sample).reshape(-1, 1)
 
@@ -93,10 +69,24 @@ class KrigingIndices(object):
         
     def build_mc_sample(self, model, n_sample=100, n_realization=10, evaluate_together=True):
         """Build the Monte-Carlo samples.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        n_realization : int,
+            The number of Gaussian Process realizations.
+        evaluate_together : bool,
+            If True, the GP evaluates the two input samples together.
+
+        Return
+        ------
         """
         dim = self.dim
-        input_sample_1 = np.asarray(self.input_distribution.getSample(n_sample))
-        input_sample_2 = np.asarray(self.input_distribution.getSample(n_sample))
+        input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
+        input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
         
         # The modified samples for each dimension
         all_output_sample_2 = np.zeros((n_sample, dim, n_realization))
@@ -144,83 +134,3 @@ class KrigingIndices(object):
                 first_indices[i, i_nz, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
 
         return first_indices
-
-
-class SobolKrigingIndices(KrigingIndices, SobolIndices):
-    """
-    """
-    def __init__(self, input_distribution):
-        KrigingIndices.__init__(self, input_distribution)
-        SobolIndices.__init__(self, input_distribution)
-
-
-def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, boot_idx=None, estimator='janon'):
-    """
-    """
-    dim = all_output_sample_2.shape[1]
-    first_indices = np.zeros((dim, n_boot))
-    Y = output_sample_1
-    for i in range(dim):
-        Yt = all_output_sample_2[:, i]
-        first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
-    return first_indices
-    
-
-def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon'):
-    """Compute the Sobol indices from the to
-
-    Parameters
-    ----------
-    """
-    n_sample = Y.shape[0]
-    assert n_sample == Yt.shape[0], "Matrices should have the same sizes"
-
-    if estimator == 'janon':
-        estimator = janon_estimator
-
-    first_indice = np.zeros((n_boot, ))
-    first_indice[0] = estimator(Y, Yt)
-    if boot_idx is None:
-        boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
-    first_indice[1:] = estimator(Y[boot_idx], Yt[boot_idx])
-
-    return first_indice if n_boot > 1 else first_indice.item()
-
-
-def janon_estimator(Y, Yt):
-    """
-    """
-    if Y.ndim == 1:
-        Y = Y.reshape(1, -1)
-        Yt = Yt.reshape(1, -1)
-
-    partial = (Y * Yt).mean(axis=1) - ((Y + Yt).mean(axis=1)*0.5)**2
-    total = (Y**2).mean(axis=1) - ((Y + Yt).mean(axis=1)*0.5)**2
-    return partial / total
-
-
-def create_df_from_gp_indices(first_indices, mean_method=True):
-    """
-    """
-    dim, n_realization, n_boot = first_indices.shape
-    columns = ['S_%d' % (i+1) for i in range(dim)]
-    if mean_method:
-        df1 = pd.DataFrame(first_indices.mean(axis=2).T, columns=columns)
-        df2 = pd.DataFrame(first_indices.mean(axis=1).T, columns=columns)
-    else:
-        df1 = pd.DataFrame(first_indices[:, :, 0].T, columns=columns)
-        df2 = pd.DataFrame(first_indices[:, 0, :].T, columns=columns)
-
-    df = pd.concat([df1, df2])
-    df['Error'] = pd.DataFrame(['Kriging error']*n_realization + ['MC error']*n_boot)
-    df = pd.melt(df, id_vars=['Error'], value_vars=columns, var_name='Variables', value_name='Indice values')
-    return df
-
-def create_df_from_mc_indices(first_indices):
-    """
-    """
-    dim, n_boot = first_indices.shape
-    columns = ['S_%d' % (i+1) for i in range(dim)]
-    df = pd.DataFrame(first_indices.T, columns=columns)
-    df = pd.melt(df, value_vars=columns, var_name='Variables', value_name='Indice values')
-    return df
