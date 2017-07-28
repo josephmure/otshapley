@@ -1,5 +1,8 @@
 import seaborn as sns
+import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
+
 
 def set_style_paper():
     # This sets reasonable defaults for font size for
@@ -17,6 +20,18 @@ def set_style_paper():
     })
 
 
+def plot_violin(df, with_hue=False, true_indices=None, figsize=(8, 4), ylim=None, savefig=''):
+    fig, ax = plt.subplots(figsize=figsize)
+    if with_hue:
+        sns.violinplot(x='Variables', y='Indice values', data=df, hue='Error', ax=ax, split=True)
+    else:
+        sns.violinplot(x='Variables', y='Indice values', data=df, ax=ax)
+    if true_indices is not None:
+        ax.plot(true_indices, 'yo', markersize=7, label='True indices')
+        ax.legend(loc=0)
+    ax.set_ylim(ylim)
+    fig.tight_layout()
+
 def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8, 4), xlabel=None, ylim=None, ax=None):
     """
     """
@@ -33,3 +48,33 @@ def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8
     ax.set_title(title)
     if ax is None:
         fig.tight_layout()
+
+
+def matrix_plot(sample, kde=False, figsize=3., aspect=1.2):
+    """
+    """
+    data = pd.DataFrame(sample)
+    plot = sns.PairGrid(data, palette=["red"], size=figsize, aspect=aspect)
+    if kde:
+        plot.map_upper(plt.scatter, s=10)
+        plot.map_lower(sns.kdeplot, cmap="Blues_d")
+    else:
+        plot.map_offdiag(plt.scatter, s=10)
+        
+    plot.map_diag(sns.distplot, kde=False)
+    plot.map_lower(corrfunc_plot)
+       
+    return plot
+
+def corrfunc_plot(x, y, **kws):
+    """
+    
+    
+    Source: https://stackoverflow.com/a/30942817/5224576
+    """
+    r, _ = stats.pearsonr(x, y)
+    k, _ = stats.kendalltau(x, y)
+    ax = plt.gca()
+    ax.annotate("r = {:.2f}\nk = {:.2f}".format(r, k),
+                xy=(.1, .8), xycoords=ax.transAxes, 
+                weight='heavy', fontsize=12)

@@ -39,6 +39,41 @@ class Indices(Base):
         self.output_sample_1 = model(input_sample_1)
         self.all_output_sample_2 = all_output_sample_2
 
+    def build_uncorrelated_mc_sample(self, model, n_sample):
+        """
+        """
+        dim = self.dim
+        input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
+        input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
+
+        dist_transformation = self._input_distribution.getIsoProbabilisticTransformation()
+        inv_dist_transformation = self._input_distribution.getInverseIsoProbabilisticTransformation()
+
+        def rosenblatt_transformation(x):
+            normal_transformed_x = dist_transformation(x)
+            norm = ot.Normal()
+            transformed_sample = np.zeros((n_sample, dim))
+            for i in range(dim):
+                transformed_sample[:, i] = np.asarray(norm.computeCDF(normal_transformed_x[:, i])).squeeze()
+            return transformed_sample
+
+        input_sample_1_uncorr = np.asarray(dist_transformation(input_sample_1))
+        input_sample_2_uncorr = np.asarray(dist_transformation(input_sample_2))
+
+        # The modified samples for each dimension
+        all_output_sample_2 = np.zeros((n_sample, dim))
+
+        X = input_sample_1_uncorr
+        for i in range(dim):
+            Xt = input_sample_2_uncorr.copy()
+            Xt[:, i] = X[:, i]
+            Xt = np.asarray(inv_dist_transformation(Xt))
+            all_output_sample_2[:, i] = model(Xt)
+
+        X = np.asarray(inv_dist_transformation(X))
+        self.output_sample_1 = model(X)
+        self.all_output_sample_2 = all_output_sample_2
+
     def compute_indices(self, n_boot=1, estimator='janon'):
         """Compute the indices.
 
