@@ -9,6 +9,12 @@ before_script:
     - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
     - source build_tools/install.sh
 
+run_test:
+    stage: test
+    script:
+        - export COVERAGE="true"
+        - source build_tools/execute.sh
+
 run_test_coverage:
     stage: test
     script:
