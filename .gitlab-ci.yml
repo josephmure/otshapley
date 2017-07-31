@@ -1,1 +1,36 @@
-﻿image: python:3.5  before_script:     - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx     - source build_tools/install.sh  run_test:     stage: test     script:         - export COVERAGE="false"         - source build_tools/execute.sh  coverage:     stage: test     script:         - export COVERAGE="true"         - source build_tools/execute.sh         - coverage report -m     coverage: '/TOTAL.+ ([0-9]{1,3}%)/'     artifacts:         paths:             - build         expire_in: 30 day  pages:     stage: deploy     before_script:         - "true"     script:         - mkdir -p public/coverage         - cp -fr build/* public/coverage/     dependencies:         - coverage     artifacts:         paths:             - public
+﻿image: python:3.5
+
+before_script:
+    - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
+    - source build_tools/install.sh
+
+run_test:
+    stage: test
+    script:
+        - export COVERAGE="false"
+        - source build_tools/execute.sh
+
+coverage:
+    stage: test
+    script:
+        - export COVERAGE="true"
+        - source build_tools/execute.sh
+        - coverage report -m
+    coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+    artifacts:
+        paths:
+            - build
+        expire_in: 30 day
+
+pages:
+    stage: deploy
+    before_script:
+        - "true"
+    script:
+        - mkdir -p public/coverage
+        - cp -fr build/* public/coverage/
+    dependencies:
+        - coverage
+    artifacts:
+        paths:
+            - public
