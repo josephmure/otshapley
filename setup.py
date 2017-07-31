@@ -4,9 +4,8 @@ try:
 except ImportError:
     from distutils.core import setup
 
-from pip.req import parse_requirements
-install_reqs = parse_requirements('requirements.txt')
-reqs = [str(ir.req) for ir in install_reqs]
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
 
 setup(
     name='shapley-indices',
@@ -18,5 +17,5 @@ setup(
     license='MIT',
     keywords='sensitivity analysis shapley',
     packages=['shapley'],
-    install_requires=reqs
+    install_requires=required
 )
