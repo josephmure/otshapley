@@ -9,7 +9,9 @@ class ShapleyIndices(Indices):
     """Shappley indices object estimator.
     """
     def __init__(self, input_distribution):
-        super(self.__class__, self).__init__(input_distribution)
+        Indices.__init__(self, input_distribution)
+        # Add shapley function
+        self.first_order_indice_func = None
 
 
 class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):

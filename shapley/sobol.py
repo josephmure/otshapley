@@ -25,18 +25,6 @@ class SobolKrigingIndices(KrigingIndices, SobolIndices):
         SobolIndices.__init__(self, input_distribution)
 
 
-def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, boot_idx=None, estimator='janon1'):
-    """
-    """
-    dim = all_output_sample_2.shape[1]
-    first_indices = np.zeros((dim, n_boot))
-    Y = output_sample_1
-    for i in range(dim):
-        Yt = all_output_sample_2[:, i]
-        first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
-    return first_indices
-
-
 def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon1'):
     """Compute the Sobol indices from the to
 
@@ -61,6 +49,17 @@ def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon1')
 
     return first_indice if n_boot > 1 else first_indice.item()
 
+
+def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, boot_idx=None, estimator='janon1'):
+    """
+    """
+    dim = all_output_sample_2.shape[1]
+    first_indices = np.zeros((dim, n_boot))
+    Y = output_sample_1
+    for i in range(dim):
+        Yt = all_output_sample_2[:, i]
+        first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
+    return first_indices
 
 def janon_estimator_1(Y, Yt):
     """

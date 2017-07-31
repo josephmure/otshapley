@@ -24,6 +24,8 @@ class Indices(Base):
         ------
         """
         dim = self.dim
+
+        # Simulate the two independent samples
         input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
         input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
         
@@ -74,7 +76,7 @@ class Indices(Base):
         self.output_sample_1 = model(X)
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=1, estimator='janon'):
+    def compute_indices(self, n_boot=1, estimator='janon2'):
         """Compute the indices.
 
         Parameters
@@ -97,4 +99,3 @@ class Indices(Base):
             first_indices[i, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, estimator=estimator)
 
         return first_indices
-

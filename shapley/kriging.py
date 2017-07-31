@@ -107,7 +107,7 @@ class KrigingIndices(Base):
         self.output_sample_1 = output_sample_1
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=50, estimator='janon', indiv_bootstraps=False):
+    def compute_indices(self, n_boot=50, estimator='janon2', indiv_bootstraps=False):
         """Compute the indices.
 
         Parameters
