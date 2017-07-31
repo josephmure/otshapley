@@ -5,19 +5,13 @@ stages:
     - deploy
 
 before_script:
+    - export COVERAGE="true"
     - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
     - source build_tools/install.sh
 
-run_test:
+run_test_coverage:
     stage: test
     script:
-        - export COVERAGE="false"
-        - source build_tools/execute.sh
-
-coverage:
-    stage: test
-    script:
-        - export COVERAGE="true"
         - source build_tools/execute.sh
         - coverage report -m
     coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
@@ -34,7 +28,7 @@ pages:
         - mkdir -p public/coverage
         - cp -fr build/* public/coverage/
     dependencies:
-        - coverage
+        - run_test_coverage
     artifacts:
         paths:
             - public
