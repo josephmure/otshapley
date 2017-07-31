@@ -1,27 +1,22 @@
-#!/usr/bin/env python
-"""
-"""
-
 # Always prefer setuptools over distutils
-from setuptools import setup
-from codecs import open
-from os import path
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
-here = path.abspath(path.dirname(__file__))
-
-# Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+from pip.req import parse_requirements
+install_reqs = parse_requirements('requirements.txt')
+reqs = [str(ir.req) for ir in install_reqs]
 
 setup(
     name='shapley-indices',
     version='0.0.1',
-    description='Shapley indices',
-    url='',
+    description='Estimation of Shapley Indices for Sensitivity Analysis.',
+    long_description=open('README.md').read(),
+    url='https://gitlab.com/CEMRACS17/shapley-indices',
     author='Nazih BENOUMECHIARA & Kevin ELIE-DIT-COSAQUE',
-    author_email='nazih.benoumechiara@gmail.com',
     license='MIT',
     keywords='sensitivity analysis shapley',
     packages=['shapley'],
-    install_requires=['numpy', 'matplotlib', 'seaborn', 'pandas']
+    install_requires=reqs
 )

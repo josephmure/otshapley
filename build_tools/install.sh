@@ -25,8 +25,8 @@ conda create -n testenv --quiet --yes python=$PYTHON_VERSION nose pip numpy pand
 
 source activate testenv
 
-pip install -q scikit-optimize
 conda install --quiet --yes -c conda-forge openturns
+pip install -q -r requirements.txt
 
 if [[ "$COVERAGE" == "true" ]]; then
     pip install coverage coveralls
