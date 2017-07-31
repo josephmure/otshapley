@@ -5,9 +5,8 @@ import seaborn as sns
 import time
 import matplotlib.pyplot as plt
 
-from shapley.kriging import KrigingIndices, compute_indices, create_df_from_gp_indices, create_df_from_indices
-from shapley.tests.test_functions import ishigami, ot_ishigami, ishigami_true_indices
-from shapley.plots import set_style_paper
+from shapley.kriging import KrigingIndices
+from shapley.tests.test_functions import ishigami, ishigami_true_indices
 
 
 def test_sobol_kriging_ishigami_independence():

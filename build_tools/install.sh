@@ -1,5 +1,6 @@
 #/usr/bin/env sh
 # Install conda using miniconda
+
 pushd .
 cd
 mkdir -p download
@@ -20,7 +21,7 @@ conda update --quiet --yes conda
 popd
 
 # Create a conda env and install packages
-conda create -n testenv --quiet --yes python=$PYTHON_VERSION nose pip matplotlib pandas seaborn
+conda create -n testenv --quiet --yes python=$PYTHON_VERSION nose pip numpy pandas matplotlib seaborn
 
 source activate testenv
 
@@ -32,5 +33,3 @@ if [[ "$COVERAGE" == "true" ]]; then
 fi
 
 python setup.py install
-
-python -c "import matplotlib.pyplot as plt"
