@@ -15,4 +15,4 @@
 *.egg-info
 
 # Coverage file
-.coverage
+#.coverage
