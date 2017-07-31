@@ -1,5 +1,9 @@
 ﻿image: python:3.5
 
+stages:
+    - test
+    - deploy
+
 before_script:
     - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
     - source build_tools/install.sh
