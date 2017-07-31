@@ -2,5 +2,10 @@ image: python:3.5
 
 before_script: source build_tools/install.sh
 
+stages:
+  - test
+
 test:
-	script: source build_tools/execute.sh
+	stage: test
+	script: 
+		- source build_tools/execute.sh
