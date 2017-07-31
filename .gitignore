@@ -13,3 +13,6 @@
 
 # Setuptools files
 *.egg-info
+
+# Coverage file
+.coverage
