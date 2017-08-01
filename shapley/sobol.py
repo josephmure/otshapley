@@ -15,6 +15,7 @@ class SobolIndices(Indices):
     def __init__(self, input_distribution):
         Indices.__init__(self, input_distribution)
         self.first_order_indice_func = first_order_sobol_indice
+        self.first_order_full_indice_func = first_order_full_sobol_indice
 
 
 class SobolKrigingIndices(KrigingIndices, SobolIndices):
@@ -24,6 +25,25 @@ class SobolKrigingIndices(KrigingIndices, SobolIndices):
         KrigingIndices.__init__(self, input_distribution)
         SobolIndices.__init__(self, input_distribution)
 
+def first_order_full_sobol_indice(Y1, Y2, Y2i, n_boot=1, boot_idx=None, estimator='mara'):
+    """Compute the Sobol indices from the to
+
+    Parameters
+    ----------
+    """
+    n_sample = Y1.shape[0]
+
+    if estimator == 'mara':
+        estimator = mara_estimator
+
+    first_indice = np.zeros((n_boot, ))
+    first_indice[0] = estimator(Y1, Y2, Y2i)
+    if boot_idx is None:
+        boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+    if n_boot > 1:
+        first_indice[1:] = estimator(Y1[boot_idx], Y2[boot_idx], Y2i[boot_idx])
+
+    return first_indice if n_boot > 1 else first_indice.item()
 
 def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon1'):
     """Compute the Sobol indices from the to
@@ -60,6 +80,7 @@ def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, bo
         Yt = all_output_sample_2[:, i]
         first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
     return first_indices
+
 
 def janon_estimator_1(Y, Yt):
     """
@@ -106,16 +127,22 @@ def sobol_estimator(Y, Yt):
 
     return partial / total
 
-def mara_estimator(Y, Yt):
+def mara_estimator(Y1, Y2, Y2i):
     """
     """
-    if Y.ndim == 1:
-        Y = Y.reshape(1, -1)
-        Yt = Yt.reshape(1, -1)
+    if Y1.ndim == 1:
+        nboot = 1
+        Y1 = Y1.reshape(1, -1)
+        Y2 = Y2.reshape(1, -1)
+        Y2i = Y2i.reshape(1, -1)
+    else:
+        nboot = Y1.shape[0]
 
     m = lambda x : x.mean(axis=1)
+    v = lambda x : x.var(axis=1)
 
-    partial = m(Y *(Y - Yt))
-    total = m(Y) + m(Yt)
+    partial = m(Y1 *(Y2i - Y2))
+    total = m((v(Y1) + v(Y2)).reshape(nboot, -1))
+    total = v(Y2i)
 
     return partial/total

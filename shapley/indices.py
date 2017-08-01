@@ -45,36 +45,59 @@ class Indices(Base):
         """
         """
         dim = self.dim
-        input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
-        input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
-
-        dist_transformation = self._input_distribution.getIsoProbabilisticTransformation()
+        norm_dist = ot.Normal(dim)
         inv_dist_transformation = self._input_distribution.getInverseIsoProbabilisticTransformation()
+        inv_rosenblatt_transform = lambda u: np.asarray(inv_dist_transformation(u))
 
-        def rosenblatt_transformation(x):
-            normal_transformed_x = dist_transformation(x)
-            norm = ot.Normal()
-            transformed_sample = np.zeros((n_sample, dim))
-            for i in range(dim):
-                transformed_sample[:, i] = np.asarray(norm.computeCDF(normal_transformed_x[:, i])).squeeze()
-            return transformed_sample
-
-        input_sample_1_uncorr = np.asarray(dist_transformation(input_sample_1))
-        input_sample_2_uncorr = np.asarray(dist_transformation(input_sample_2))
+        U_1 = np.asarray(norm_dist.getSample(n_sample))
+        U_2 = np.asarray(norm_dist.getSample(n_sample))
 
         # The modified samples for each dimension
+        all_output_sample_1 = np.zeros((n_sample, dim))
         all_output_sample_2 = np.zeros((n_sample, dim))
+        all_output_sample_3 = np.zeros((n_sample, dim))
+        all_output_sample_4 = np.zeros((n_sample, dim))
 
-        X = input_sample_1_uncorr
         for i in range(dim):
-            Xt = input_sample_2_uncorr.copy()
-            Xt[:, i] = X[:, i]
-            Xt = np.asarray(inv_dist_transformation(Xt))
-            all_output_sample_2[:, i] = model(Xt)
+            #The variables are rearanged according to Mara 2015
+            order_i = list(range(i, dim))
+            if i > 0:
+                order_i += list(range(i))
+            U_1_i = U_1[:, order_i]
+            U_2_i = U_2[:, order_i]
 
-        X = np.asarray(inv_dist_transformation(X))
-        self.output_sample_1 = model(X)
+            U_3_i = U_2_i.copy()
+            U_3_i[:, 0] = U_1_i[:, 0]
+            U_4_i = U_2_i.copy()
+            U_4_i[:, -1] = U_1_i[:, -1]
+
+            X_1_i = inv_rosenblatt_transform(U_1_i)
+            X_2_i = inv_rosenblatt_transform(U_2_i)
+            X_3_i = inv_rosenblatt_transform(U_3_i)
+            X_4_i = inv_rosenblatt_transform(U_4_i)
+
+            all_output_sample_1[:, i] = model(X_1_i)
+            all_output_sample_2[:, i] = model(X_2_i)
+            all_output_sample_3[:, i] = model(X_3_i)
+            all_output_sample_4[:, i] = model(X_4_i)
+
+        self.all_output_sample_1 = all_output_sample_1
         self.all_output_sample_2 = all_output_sample_2
+        self.all_output_sample_3 = all_output_sample_3
+        self.all_output_sample_4 = all_output_sample_4
+
+    def compute_uncorrelated_indices(self, n_boot=1, estimator='mara'):
+        """
+        """
+        dim = self.dim
+        first_indices = np.zeros((dim, n_boot))
+        for i in range(dim):
+            Y1i = self.all_output_sample_1[:, i]
+            Y2i = self.all_output_sample_2[:, i]
+            Y3i = self.all_output_sample_3[:, i]
+            first_indices[i, :] = self.first_order_full_indice_func(Y1i, Y2i, Y3i, n_boot=n_boot, estimator=estimator)
+
+        return first_indices
 
     def compute_indices(self, n_boot=1, estimator='janon2'):
         """Compute the indices.
