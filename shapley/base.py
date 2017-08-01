@@ -40,7 +40,7 @@ class Base(object):
 
     @first_order_indice_func.setter
     def first_order_indice_func(self, func):
-        assert callable(func) or None, \
+        assert callable(func) or func is None, \
             "First order indice function should be callable or None."
 
         self._first_order_indice_func = func
@@ -53,7 +53,7 @@ class Base(object):
 
     @total_indice_func.setter
     def total_indice_func(self, func):
-        assert callable(func) or None, \
+        assert callable(func) or func is None, \
             "Total indice function should be callable or None."
 
         self._first_order_indice_func = func

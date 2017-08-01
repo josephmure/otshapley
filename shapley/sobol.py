@@ -105,3 +105,17 @@ def sobol_estimator(Y, Yt):
     total = m(Y**2) - m(Y)**2
 
     return partial / total
+
+def mara_estimator(Y, Yt):
+    """
+    """
+    if Y.ndim == 1:
+        Y = Y.reshape(1, -1)
+        Yt = Yt.reshape(1, -1)
+
+    m = lambda x : x.mean(axis=1)
+
+    partial = m(Y *(Y - Yt))
+    total = m(Y) + m(Yt)
+
+    return partial/total

@@ -11,11 +11,14 @@ def ishigami(x):
     else:
         return np.sin(x[:, 0]) + 7*np.sin(x[:, 1])**2 + 0.1*x[:, 2]**4 * np.sin(x[:, 0])
 
-def linear(x, beta=None):
+def additive_linear(x, beta=None):
     """
     """
     x = np.asarray(x)
-    dim = x.ndim
+    if x.ndim == 1:
+        dim = x.shape[0]
+    else:
+        n_sample, dim = x.shape
     if beta is None:
         beta = np.ones((dim, ))
     else:
