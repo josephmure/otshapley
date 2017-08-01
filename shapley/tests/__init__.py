@@ -1,1 +1,1 @@
-from .test_functions import ishigami, ishigami_true_indices, additive_linear
+from .test_functions import Ishigami, additive_linear
