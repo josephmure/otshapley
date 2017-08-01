@@ -131,18 +131,14 @@ def mara_estimator(Y1, Y2, Y2i):
     """
     """
     if Y1.ndim == 1:
-        nboot = 1
         Y1 = Y1.reshape(1, -1)
         Y2 = Y2.reshape(1, -1)
         Y2i = Y2i.reshape(1, -1)
-    else:
-        nboot = Y1.shape[0]
 
     m = lambda x : x.mean(axis=1)
     v = lambda x : x.var(axis=1)
 
     partial = m(Y1 *(Y2i - Y2))
-    total = m((v(Y1) + v(Y2)).reshape(nboot, -1))
-    total = v(Y2i)
+    total = (v(Y1) + v(Y2))/2.
 
     return partial/total

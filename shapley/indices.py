@@ -45,10 +45,14 @@ class Indices(Base):
         """
         """
         dim = self.dim
+        # Normal distribution
         norm_dist = ot.Normal(dim)
+
+        # Inverse rosenblatt distribution
         inv_dist_transformation = self._input_distribution.getInverseIsoProbabilisticTransformation()
         inv_rosenblatt_transform = lambda u: np.asarray(inv_dist_transformation(u))
 
+        # Independent samples
         U_1 = np.asarray(norm_dist.getSample(n_sample))
         U_2 = np.asarray(norm_dist.getSample(n_sample))
 
@@ -59,12 +63,8 @@ class Indices(Base):
         all_output_sample_4 = np.zeros((n_sample, dim))
 
         for i in range(dim):
-            #The variables are rearanged according to Mara 2015
-            order_i = list(range(i, dim))
-            if i > 0:
-                order_i += list(range(i))
-            U_1_i = U_1[:, order_i]
-            U_2_i = U_2[:, order_i]
+            U_1_i = U_1
+            U_2_i = U_2
 
             U_3_i = U_2_i.copy()
             U_3_i[:, 0] = U_1_i[:, 0]
@@ -75,6 +75,25 @@ class Indices(Base):
             X_2_i = inv_rosenblatt_transform(U_2_i)
             X_3_i = inv_rosenblatt_transform(U_3_i)
             X_4_i = inv_rosenblatt_transform(U_4_i)
+
+            self.debug_U_3_i = U_3_i
+            self.debug_X_3_i = X_3_i 
+            self.debug_X_1_i = X_1_i 
+
+            order_i = list()
+            if i > 0:
+                order_i = list(range(dim-i, dim))
+
+            order_i += list(range(dim-i))
+            order_i = range(dim)
+            print(order_i)
+
+            X_1_i = X_1_i[:, order_i]
+            X_2_i = X_2_i[:, order_i]
+            X_3_i = X_3_i[:, order_i]
+            X_4_i = X_4_i[:, order_i]
+
+            assert X_1_i.shape[1] == dim, "Wrong dimension"
 
             all_output_sample_1[:, i] = model(X_1_i)
             all_output_sample_2[:, i] = model(X_2_i)
