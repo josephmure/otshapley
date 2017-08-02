@@ -39,6 +39,12 @@ class Ishigami(object):
         return y
 
     @property
+    def first_order_sobol_indices(self):
+        """The true first order sobol indices.
+        """
+        return self._first_order_sobol_indices
+
+    @property
     def ndim(self):
         """Problem dimension.
         """

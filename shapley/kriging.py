@@ -25,7 +25,7 @@ class KrigingIndices(Base):
             The model function to approximate.
         n_sample : int,
             The sampling size.
-        basis_type : str,
+        basis_type : str or ot.CovarianceModelImplementation,
             The type of basis to use for the kriging model.
         kernel : str,
             The kernel to use.
@@ -38,19 +38,16 @@ class KrigingIndices(Base):
             A stochastic function of the built kriging model.
         """
         dim = self.dim
-        if basis_type == 'linear':
-            basis = ot.LinearBasisFactory(dim).build()
-        elif basis_type == 'constant':
-            basis = ot.ConstantBasisFactory(dim).build()
-
-        if kernel == 'matern':
-            covariance = ot.MaternModel(dim)
+        basis = get_basis(basis_type, dim)
+        covariance = get_covariance(kernel, dim)
 
         if sampling == 'lhs':
             lhs = ot.LHSExperiment(self._input_distribution, n_sample)
             input_sample = lhs.generate()
         elif sampling == 'monte-carlo':
             input_sample = self._input_distribution.getSample(n_sample)
+        else:
+            raise ValueError('Unknow sampling type {0}'.format(sampling))
 
         output_sample = model(input_sample).reshape(-1, 1)
 
@@ -58,12 +55,18 @@ class KrigingIndices(Base):
         kriging_algo = ot.KrigingAlgorithm(input_sample, output_sample, covariance, basis)
         kriging_algo.run()
         kriging_result = kriging_algo.getResult()
+        self.kriging_algo = kriging_algo
+        self.kriging_result = kriging_result
+        self.meta_model_mean = kriging_result.getMetaModel()
 
         # The resulting meta_model function
         def meta_model(X, n_realization=1):
             kriging_vector = ot.KrigingRandomVector(kriging_result, X)
             output = np.asarray(kriging_vector.getSample(n_realization)).T
             return output.squeeze()
+        
+        self.meta_model_input_sample = np.asarray(input_sample)
+        self.meta_model_output_sample = output_sample.squeeze()
 
         return meta_model
         
@@ -107,7 +110,7 @@ class KrigingIndices(Base):
         self.output_sample_1 = output_sample_1
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=50, estimator='janon2', indiv_bootstraps=False):
+    def compute_indices(self, n_boot=100, estimator='janon2', indiv_bootstraps=False):
         """Compute the indices.
 
         Parameters
@@ -134,3 +137,106 @@ class KrigingIndices(Base):
                 first_indices[i, i_nz, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
 
         return first_indices
+
+
+
+def test_q2(ytrue, ypred):
+    """Compute the Q2 test.
+
+    Parameters
+    ----------
+    ytrue : array,
+        The true output values.
+    ypred : array,
+        The predicted output values.
+
+    Returns
+    -------
+    q2 : float,
+        The estimated Q2.
+    """
+    ymean = ytrue.mean()
+    up = ((ytrue - ypred)**2).sum()
+    down = ((ytrue - ymean)**2).sum()
+    q2 = 1. - up / down
+    return q2
+
+
+def get_basis(basis_type, dim):
+    """
+    """
+    if basis_type == 'constant':
+        basis = ot.ConstantBasisFactory(dim).build()
+    elif basis_type == 'linear':
+        basis = ot.LinearBasisFactory(dim).build()
+    elif basis_type == 'quadratic':
+        basis = ot.QuadraticBasisFactory(dim).build()
+    else:
+        raise ValueError('Unknow basis type {0}'.format(basis_type))
+
+    return basis
+
+
+def compute_q2_cv(model, meta_model, input_distribution, n_sample=100, sampling='lhs'):
+    """Cross validation Q2 test.
+    """
+    if sampling =='lhs':
+        lhs = ot.LHSExperiment(input_distribution, n_sample)
+        val_input_sample = lhs.generate()
+    elif sampling == 'monte-carlo':
+        val_input_sample = input_distribution.getSample(n_sample)
+        
+    val_output_sample = model(val_input_sample).reshape(-1, 1)
+
+    ytrue = val_output_sample.squeeze()
+    ypred = np.asarray(meta_model(val_input_sample)).squeeze()
+    
+    q2 = test_q2(ytrue, ypred)
+    return q2
+
+
+def compute_q2_loo(input_sample, output_sample, basis_type='linear', kernel='matern'):
+    """Leave One Out estimation of Q2.
+    """
+    n_sample, dim = input_sample.shape
+    basis = get_basis(basis_type, dim)
+    covariance = get_covariance(kernel, dim)
+    
+    ypred = np.zeros((n_sample, ))
+    
+    for i in range(n_sample):
+        xi = input_sample[i, :]
+        input_sample_i = np.delete(input_sample, i, axis=0)
+        output_sample_i = np.delete(output_sample, i, axis=0).reshape(-1, 1)
+        
+        kriging_algo = ot.KrigingAlgorithm(input_sample_i, output_sample_i, covariance, basis)
+        kriging_algo.run()
+        meta_model_mean = kriging_algo.getResult().getMetaModel()
+        
+        ypred[i] = np.asarray(meta_model_mean(xi))
+
+    ytrue = output_sample.squeeze()
+    q2 = test_q2(ytrue, ypred)
+    
+    return q2
+
+
+def get_covariance(kernel, dim=None):
+    """
+    """
+    if isinstance(kernel, ot.CovarianceModelImplementation):
+        covariance = kernel
+    else:
+        assert dim is not None, "Dimension should be given"
+        if kernel == 'matern':
+            covariance = ot.MaternModel(dim)
+        elif kernel == 'exponential':
+            covariance = ot.ExponentialModel(dim)
+        elif kernel == 'generalized-exponential':
+            covariance = ot.GeneralizedExponential(dim)
+        elif kernel == 'spherical':
+            covariance = ot.SphericalModel(dim)
+        else:
+            raise ValueError('Unknow kernel {0}'.format(kernel))
+
+    return covariance

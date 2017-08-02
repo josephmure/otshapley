@@ -25,6 +25,7 @@ class SobolKrigingIndices(KrigingIndices, SobolIndices):
         KrigingIndices.__init__(self, input_distribution)
         SobolIndices.__init__(self, input_distribution)
 
+
 def first_order_full_sobol_indice(Y1, Y2, Y2i, n_boot=1, boot_idx=None, estimator='mara'):
     """Compute the Sobol indices from the to
 
@@ -45,44 +46,43 @@ def first_order_full_sobol_indice(Y1, Y2, Y2i, n_boot=1, boot_idx=None, estimato
 
     return first_indice if n_boot > 1 else first_indice.item()
 
+
 def first_order_sobol_indice(Y, Yt, n_boot=1, boot_idx=None, estimator='janon1'):
     """Compute the Sobol indices from the to
 
     Parameters
     ----------
+    Y : array,
+        The 
+
+    Returns
+    -------
+    indice : int or array,
+        The first order sobol indice estimation.
     """
     n_sample = Y.shape[0]
     assert n_sample == Yt.shape[0], "Matrices should have the same sizes"
 
     if estimator == 'janon1':
-        estimator = janon_estimator_1
+        estimator = estimator_first_order_janon1
     elif estimator == 'janon2':
-        estimator = janon_estimator_2
+        estimator = estimator_first_order_janon2
     elif estimator == 'sobol':
-        estimator = sobol_estimator
+        estimator = estimator_first_order_sobol
+    else:
+        raise ValueError('Unknow estimator {0}'.format(estimator))
 
-    first_indice = np.zeros((n_boot, ))
-    first_indice[0] = estimator(Y, Yt)
     if boot_idx is None:
         boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
-    first_indice[1:] = estimator(Y[boot_idx], Yt[boot_idx])
 
-    return first_indice if n_boot > 1 else first_indice.item()
+    indice = np.zeros((n_boot, ))
+    indice[0] = estimator(Y, Yt)
+    indice[1:] = estimator(Y[boot_idx], Yt[boot_idx])
 
-
-def first_order_sobol_indices(output_sample_1, all_output_sample_2, n_boot=1, boot_idx=None, estimator='janon1'):
-    """
-    """
-    dim = all_output_sample_2.shape[1]
-    first_indices = np.zeros((dim, n_boot))
-    Y = output_sample_1
-    for i in range(dim):
-        Yt = all_output_sample_2[:, i]
-        first_indices[i, :] = first_order_sobol_indice(Y, Yt, n_boot=n_boot)
-    return first_indices
+    return indice if n_boot > 1 else indice.item()
 
 
-def janon_estimator_1(Y, Yt):
+def estimator_first_order_janon1(Y, Yt):
     """
     """
     if Y.ndim == 1:
@@ -90,16 +90,12 @@ def janon_estimator_1(Y, Yt):
         Yt = Yt.reshape(1, -1)
         
     m = lambda x : x.mean(axis=1)
-
     partial = m(Y * Yt) - m(Y) * m(Yt)
     total = m(Y**2) - m(Y)**2
-
-    partial = (Y * Yt).mean(axis=1) - Y.mean(axis=1) * Yt.mean(axis=1)
-    total = (Y**2).mean(axis=1) - Yt.mean(axis=1)**2
     return partial / total
 
 
-def janon_estimator_2(Y, Yt):
+def estimator_first_order_janon2(Y, Yt):
     """
     """
     if Y.ndim == 1:
@@ -107,13 +103,11 @@ def janon_estimator_2(Y, Yt):
         Yt = Yt.reshape(1, -1)
         
     m = lambda x : x.mean(axis=1)
-
     partial = m(Y*Yt) - m((Y + Yt)/2.)**2
     total = m((Y**2 + Yt**2)/2.) - m((Y + Yt)/2.)**2
-
     return partial / total
 
-def sobol_estimator(Y, Yt):
+def estimator_first_order_sobol(Y, Yt):
     """
     """
     if Y.ndim == 1:
@@ -121,10 +115,8 @@ def sobol_estimator(Y, Yt):
         Yt = Yt.reshape(1, -1)
 
     m = lambda x : x.mean(axis=1)
-
     partial = m(Y * Yt) - m(Y)**2
     total = m(Y**2) - m(Y)**2
-
     return partial / total
 
 def mara_estimator(Y1, Y2, Y2i):
@@ -137,8 +129,6 @@ def mara_estimator(Y1, Y2, Y2i):
 
     m = lambda x : x.mean(axis=1)
     v = lambda x : x.var(axis=1)
-
     partial = m(Y1 *(Y2i - Y2))
     total = (v(Y1) + v(Y2))/2.
-
     return partial/total
