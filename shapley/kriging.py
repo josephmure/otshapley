@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import openturns as ot
 
-from .base import Base
+from .base import Base, ProbabilisticModel
 
 
 class KrigingIndices(Base):
@@ -37,10 +37,8 @@ class KrigingIndices(Base):
         meta_model : callable,
             A stochastic function of the built kriging model.
         """
-        dim = self.dim
-        basis = get_basis(basis_type, dim)
-        covariance = get_covariance(kernel, dim)
 
+        # Generate the sample.
         if sampling == 'lhs':
             lhs = ot.LHSExperiment(self._input_distribution, n_sample)
             input_sample = lhs.generate()
@@ -49,24 +47,12 @@ class KrigingIndices(Base):
         else:
             raise ValueError('Unknow sampling type {0}'.format(sampling))
 
-        output_sample = model(input_sample).reshape(-1, 1)
+        input_sample = np.asarray(input_sample)
+        output_sample = model(input_sample)
 
         # Build the meta_model
-        kriging_algo = ot.KrigingAlgorithm(input_sample, output_sample, covariance, basis)
-        kriging_algo.run()
-        kriging_result = kriging_algo.getResult()
-        self.kriging_algo = kriging_algo
-        self.kriging_result = kriging_result
-        self.meta_model_mean = kriging_result.getMetaModel()
-
-        # The resulting meta_model function
-        def meta_model(X, n_realization=1):
-            kriging_vector = ot.KrigingRandomVector(kriging_result, X)
-            output = np.asarray(kriging_vector.getSample(n_realization)).T
-            return output.squeeze()
-        
-        self.meta_model_input_sample = np.asarray(input_sample)
-        self.meta_model_output_sample = output_sample.squeeze()
+        meta_model = KrigingModel(kernel=kernel, basis_type=basis_type)
+        meta_model.fit(input_sample, output_sample)
 
         return meta_model
         
@@ -139,6 +125,73 @@ class KrigingIndices(Base):
         return first_indices
 
 
+class KrigingModel(ProbabilisticModel):
+    """
+    """
+    def __init__(self, input_sample, output_sample, input_distribution, kernel='matern', basis_type='linear'):
+        dim = input_sample.shape
+        covariance = get_covariance(self.kernel, dim)
+        basis = get_basis(self.basis_type, dim)
+
+        kriging_algo = ot.KrigingAlgorithm(input_sample, output_sample.reshape(-1, 1), covariance, basis)
+        kriging_algo.run()
+        kriging_result = kriging_algo.getResult()
+
+        # The resulting meta_model function
+        def meta_model(X, n_realization=1):
+            kriging_vector = ot.KrigingRandomVector(self.kriging_result_, X)
+            output = np.asarray(kriging_vector.getSample(n_realization)).T
+            return output.squeeze()
+
+        ProbabilisticModel.__init__(self, model_func=meta_model, input_distribution=input_distribution)
+
+        self.input_sample = input_sample
+        self.output_sample = output_sample
+        self.kernel = kernel
+        self.basis_type = basis_type
+        self.model_built = False
+
+    def build_model(self):
+        """
+        """
+
+    def __call__(self, X, n_realization=1):
+        y = self._model_func(X, n_realization)
+        return y
+
+    def predict(self, X):
+        """
+        """
+        kriging_model = self.kriging_result_.getMetaModel()
+        prediction = np.asarray(kriging_model(X)).squeeze()
+        return prediction
+
+    def compute_score_q2(self):
+        """Leave One Out estimation of Q2.
+        """
+        q2 = q2_loo(self.input_sample_, self.output_sample_, self.basis_, self.covariance_)
+        self.score_q2_ = q2
+        return q2
+
+    def __call__(self, X, n_realization=1):
+        """Get output realization of the Kriging model.
+
+        Parameters
+        ----------
+        X : array,
+            The input sample.
+        n_realization : int,
+            The number of realizations.
+
+        Returns
+        -------
+        predictions : array,
+            The response prediction.
+        """
+        assert self.model_built, "Model should be built before prediction."
+        kriging_vector = ot.KrigingRandomVector(self.kriging_result_, X)
+        predictions = np.asarray(kriging_vector.getSample(n_realization)).T
+        return predictions.squeeze()
 
 def test_q2(ytrue, ypred):
     """Compute the Q2 test.
@@ -177,31 +230,23 @@ def get_basis(basis_type, dim):
     return basis
 
 
-def compute_q2_cv(model, meta_model, input_distribution, n_sample=100, sampling='lhs'):
+def q2_cv(ytrue, ypred):
     """Cross validation Q2 test.
+
+    Parameters
+    ----------
+    ytrue : array,
+        The true values.
     """
-    if sampling =='lhs':
-        lhs = ot.LHSExperiment(input_distribution, n_sample)
-        val_input_sample = lhs.generate()
-    elif sampling == 'monte-carlo':
-        val_input_sample = input_distribution.getSample(n_sample)
-        
-    val_output_sample = model(val_input_sample).reshape(-1, 1)
-
-    ytrue = val_output_sample.squeeze()
-    ypred = np.asarray(meta_model(val_input_sample)).squeeze()
-    
-    q2 = test_q2(ytrue, ypred)
+       
+    ytrue = ytrue.squeeze()
+    ypred = ypred.squeeze()
+    q2 = max(0., test_q2(ytrue, ypred))
     return q2
-
-
-def compute_q2_loo(input_sample, output_sample, basis_type='linear', kernel='matern'):
+def q2_loo(input_sample, output_sample, basis, covariance):
     """Leave One Out estimation of Q2.
     """
     n_sample, dim = input_sample.shape
-    basis = get_basis(basis_type, dim)
-    covariance = get_covariance(kernel, dim)
-    
     ypred = np.zeros((n_sample, ))
     
     for i in range(n_sample):
@@ -216,7 +261,7 @@ def compute_q2_loo(input_sample, output_sample, basis_type='linear', kernel='mat
         ypred[i] = np.asarray(meta_model_mean(xi))
 
     ytrue = output_sample.squeeze()
-    q2 = test_q2(ytrue, ypred)
+    q2 = max(0., test_q2(ytrue, ypred))
     
     return q2
 
