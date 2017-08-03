@@ -7,6 +7,7 @@
 *.sln
 *.suo
 .vs/
+.cache/
 
 # Jupyter notebook files
 .ipynb_checkpoints/
