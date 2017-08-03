@@ -3,7 +3,7 @@ export PATH="$HOME/miniconda/bin:$PATH"
 source activate testenv
 
 if [ ${COVERAGE} == "true" ]; then
-	nosetests --with-coverage -q --cover-html-dir=build --cover-html
+	pytest --cov-report html:build --cov=shapley
 	coverage report -m
 else
     nosetests -v -sx

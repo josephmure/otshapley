@@ -17,3 +17,4 @@
 
 # Coverage file
 .coverage
+/build
