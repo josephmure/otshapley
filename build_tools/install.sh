@@ -29,7 +29,7 @@ conda install --quiet --yes -c conda-forge openturns
 pip install -q -r requirements.txt
 
 if [[ "$COVERAGE" == "true" ]]; then
-    pip install coverage coveralls pytest
+    pip install coverage coveralls pytest pytest-cov
 fi
 
 python setup.py install

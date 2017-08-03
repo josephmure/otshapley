@@ -147,7 +147,6 @@ class KrigingModel(ProbabilisticModel):
         self.input_sample = np.asarray(input_sample)
         self.output_sample = self.true_model(input_sample)
 
-        
     def build(self, kernel='matern', basis_type='linear'):
         """Build the Kriging model.
 
@@ -165,9 +164,13 @@ class KrigingModel(ProbabilisticModel):
         def meta_model(X, n_realization=1):
             kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
             output = np.asarray(kriging_vector.getSample(n_realization)).T
-            return output.squeeze()
+            return output
 
         self.model_func = meta_model
+
+    def __call__(self, X, n_realization=1):
+        y = self._model_func(X, n_realization)
+        return y
 
     @property
     def input_sample(self):
@@ -214,10 +217,6 @@ class KrigingModel(ProbabilisticModel):
     def basis(self, basis):
         self._basis = get_basis(basis, self._ndim)
 
-    def __call__(self, X, n_realization=1):
-        y = self._model_func(X, n_realization)
-        return y
-
     def predict(self, X):
         """Predict the kriging model in a deterministic way.
         """
@@ -241,26 +240,6 @@ class KrigingModel(ProbabilisticModel):
         q2 = q2_cv(ytrue, ypred)
         self.score_q2_cv = q2
         return q2
-
-
-    def __call__(self, X, n_realization=1):
-        """Get output realization of the Kriging model.
-
-        Parameters
-        ----------
-        X : array,
-            The input sample.
-        n_realization : int,
-            The number of realizations.
-
-        Returns
-        -------
-        predictions : array,
-            The response prediction.
-        """
-        kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
-        predictions = np.asarray(kriging_vector.getSample(n_realization)).T
-        return predictions.squeeze()
 
 def test_q2(ytrue, ypred):
     """Compute the Q2 test.

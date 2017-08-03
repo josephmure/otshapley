@@ -8,14 +8,17 @@ def create_df_from_gp_indices(first_indices, mean_method=True):
     dim, n_realization, n_boot = first_indices.shape
     columns = ['S_%d' % (i+1) for i in range(dim)]
     if mean_method:
-        df1 = pd.DataFrame(first_indices.mean(axis=2).T, columns=columns)
-        df2 = pd.DataFrame(first_indices.mean(axis=1).T, columns=columns)
+        df_gp = pd.DataFrame(first_indices.mean(axis=2).T, columns=columns)
+        df_mc = pd.DataFrame(first_indices.mean(axis=1).T, columns=columns)
     else:
-        df1 = pd.DataFrame(first_indices[:, :, 0].T, columns=columns)
-        df2 = pd.DataFrame(first_indices[:, 0, :].T, columns=columns)
+        df_gp = pd.DataFrame(first_indices[:, :, 0].T, columns=columns)
+        df_mc = pd.DataFrame(first_indices[:, 0, :].T, columns=columns)
 
-    df = pd.concat([df1, df2])
-    df['Error'] = pd.DataFrame(['Kriging error']*n_realization + ['MC error']*n_boot)
+    df = pd.concat([df_gp, df_mc])
+    err_gp = pd.DataFrame(['Kriging error']*n_realization)
+    err_mc = pd.DataFrame(['MC error']*n_boot)
+    df['Error'] = pd.concat([err_gp, err_mc])
+
     df = pd.melt(df, id_vars=['Error'], value_vars=columns, var_name='Variables', value_name='Indice values')
     return df
 
