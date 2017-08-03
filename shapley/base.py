@@ -78,7 +78,8 @@ class Model(object):
 
     @model_func.setter
     def model_func(self, func):
-        assert callable(func), "The function should be callable"
+        if func is not None:
+            assert callable(func), "The function should be callable"
         self._model_func = func
 
     def __call__(self, x):
