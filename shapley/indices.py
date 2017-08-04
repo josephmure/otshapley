@@ -48,9 +48,8 @@ class Indices(Base):
         # Normal distribution
         norm_dist = ot.Normal(dim)
 
-        # Inverse rosenblatt distribution
-        inv_dist_transformation = self._input_distribution.getInverseIsoProbabilisticTransformation()
-        inv_rosenblatt_transform = lambda u: np.asarray(inv_dist_transformation(u))
+        margins = [self._input_distribution.getMarginal(i) for i in range(dim)]
+        copula = self._input_distribution.getCopula()
 
         # Independent samples
         U_1 = np.asarray(norm_dist.getSample(n_sample))
@@ -63,31 +62,53 @@ class Indices(Base):
         all_output_sample_4 = np.zeros((n_sample, dim))
 
         for i in range(dim):
-            U_1_i = U_1
-            U_2_i = U_2
+            # 1) Permutations
+            if False:
+                U_1_i = U_1[:, order_i]
+                U_2_i = U_2[:, order_i]
+            else:
+                U_1_i = U_1
+                U_2_i = U_2
 
+            # 2) Pick and Freeze
             U_3_i = U_2_i.copy()
             U_3_i[:, 0] = U_1_i[:, 0]
             U_4_i = U_2_i.copy()
             U_4_i[:, -1] = U_1_i[:, -1]
 
+            order_i = list(range(i, dim))
+            if i > 0:
+                order_i += list(range(i))
+
+            margins_i = [margins[j] for j in order_i]
+            params = np.asarray(copula.getParameter())
+            if i == 0:
+                order_cop = [0, 1, 2]
+            elif i == 2:
+                order_cop = [2, 0, 1]
+            else:
+                order_cop = [2, 0, 1]
+
+            copula.setParameter(params[order_cop])
+            dist = ot.ComposedDistribution(margins_i, copula)
+
+            # Inverse rosenblatt distribution
+            inv_dist_transformation = dist.getInverseIsoProbabilisticTransformation()
+            inv_rosenblatt_transform = lambda u: np.asarray(inv_dist_transformation(u))
+
+            # 3) Inverse Transformation
             X_1_i = inv_rosenblatt_transform(U_1_i)
             X_2_i = inv_rosenblatt_transform(U_2_i)
             X_3_i = inv_rosenblatt_transform(U_3_i)
             X_4_i = inv_rosenblatt_transform(U_4_i)
-
-            self.debug_U_3_i = U_3_i
-            self.debug_X_3_i = X_3_i 
-            self.debug_X_1_i = X_1_i 
 
             order_i = list()
             if i > 0:
                 order_i = list(range(dim-i, dim))
 
             order_i += list(range(dim-i))
-            order_i = range(dim)
             print(order_i)
-
+            
             X_1_i = X_1_i[:, order_i]
             X_2_i = X_2_i[:, order_i]
             X_3_i = X_3_i[:, order_i]
@@ -95,6 +116,7 @@ class Indices(Base):
 
             assert X_1_i.shape[1] == dim, "Wrong dimension"
 
+            # 4) Model evaluations
             all_output_sample_1[:, i] = model(X_1_i)
             all_output_sample_2[:, i] = model(X_2_i)
             all_output_sample_3[:, i] = model(X_3_i)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import openturns as ot
-
+from sklearn.gaussian_process import GaussianProcessRegressor
 from .base import Base, ProbabilisticModel
 
 
@@ -16,7 +16,7 @@ class KrigingIndices(Base):
     def __init__(self, input_distribution):
         Base.__init__(self, input_distribution)
         
-    def build_meta_model(self, model, n_sample=100, basis_type='linear', kernel='matern', sampling='lhs'):
+    def build_meta_model(self, model, n_sample=100, basis_type='linear', kernel='matern', sampling='lhs', library='OT'):
         """Build the Kriging model.
 
         Parameters
@@ -39,7 +39,7 @@ class KrigingIndices(Base):
         """
         meta_model = KrigingModel(model=model, input_distribution=self._input_distribution)
         meta_model.generate_sample(n_sample=n_sample, sampling=sampling)
-        meta_model.build(kernel=kernel, basis_type=basis_type)
+        meta_model.build(kernel=kernel, basis_type=basis_type, library=library)
         return meta_model
         
     def build_mc_sample(self, model, n_sample=100, n_realization=10):
@@ -145,25 +145,43 @@ class KrigingModel(ProbabilisticModel):
         self.input_sample = np.asarray(input_sample)
         self.output_sample = self.true_model(input_sample)
 
-    def build(self, kernel='matern', basis_type='linear'):
+    def build(self, library='sklearn', kernel='matern', basis_type='linear'):
         """Build the Kriging model.
 
         Parameters
         ----------
         """
-        self.covariance = kernel
-        self.basis = basis_type
+        self.library = library
+        if library == 'OT':
+            self.covariance = kernel
+            self.basis = basis_type
+            kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)
+            kriging_algo.run()
+            self.kriging_result = kriging_algo.getResult()
 
-        kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)
-        kriging_algo.run()
-        self.kriging_result = kriging_algo.getResult()
+            # The resulting meta_model function
+            def meta_model(X, n_realization=1):
+                kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
+                output = np.asarray(kriging_vector.getSample(n_realization)).T
+                return output
+            
+            def predict(X):
+                """Predict the kriging model in a deterministic way.
+                """
+                kriging_model = self.kriging_result.getMetaModel()
+                prediction = np.asarray(kriging_model(X)).squeeze()
+                return prediction
+        elif library == 'sklearn':
+            kriging_result = GaussianProcessRegressor()
+            kriging_result.fit(self.input_sample, self.output_sample)
+            self.kriging_result = kriging_result
+            def meta_model(X, n_realization=1):
+                return kriging_result.sample_y(X, n_samples=n_realization)
+            predict = kriging_result.predict
+        else:
+            raise ValueError('Unknow library {0}'.format(library))
 
-        # The resulting meta_model function
-        def meta_model(X, n_realization=1):
-            kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
-            output = np.asarray(kriging_vector.getSample(n_realization)).T
-            return output
-
+        self.predict = predict
         self.model_func = meta_model
 
     def __call__(self, X, n_realization=1):
@@ -214,13 +232,6 @@ class KrigingModel(ProbabilisticModel):
     @basis.setter
     def basis(self, basis):
         self._basis = get_basis(basis, self._ndim)
-
-    def predict(self, X):
-        """Predict the kriging model in a deterministic way.
-        """
-        kriging_model = self.kriging_result.getMetaModel()
-        prediction = np.asarray(kriging_model(X)).squeeze()
-        return prediction
 
     def compute_score_q2_loo(self):
         """Leave One Out estimation of Q2.

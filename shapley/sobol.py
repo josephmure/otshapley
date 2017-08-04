@@ -130,5 +130,5 @@ def mara_estimator(Y1, Y2, Y2i):
     m = lambda x : x.mean(axis=1)
     v = lambda x : x.var(axis=1)
     partial = m(Y1 *(Y2i - Y2))
-    total = (v(Y1) + v(Y2))/2.
+    total = v(Y2i)
     return partial/total
