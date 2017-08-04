@@ -17,6 +17,7 @@ plot(x)
 # Modèle gaussien avec 3 entrées #
 ##################################
 
+library(sensitivity)
 library(gtools)
 library(mvtnorm) # Multivariate Gaussian variables
 library(condMVNorm) # Conditional multivariate Gaussian variables
