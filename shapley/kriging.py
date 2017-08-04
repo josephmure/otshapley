@@ -42,7 +42,7 @@ class KrigingIndices(Base):
         meta_model.build(kernel=kernel, basis_type=basis_type)
         return meta_model
         
-    def build_mc_sample(self, model, n_sample=100, n_realization=10, evaluate_together=True):
+    def build_mc_sample(self, model, n_sample=100, n_realization=10):
         """Build the Monte-Carlo samples.
 
         Parameters
@@ -53,8 +53,6 @@ class KrigingIndices(Base):
             The sampling size of Monte-Carlo
         n_realization : int,
             The number of Gaussian Process realizations.
-        evaluate_together : bool,
-            If True, the GP evaluates the two input samples together.
 
         Return
         ------
@@ -71,18 +69,19 @@ class KrigingIndices(Base):
         for i in range(dim):
             Xt = input_sample_2.copy()
             Xt[:, i] = X[:, i]
-            if evaluate_together:
-                output_sample_i = model(np.r_[X, Xt], n_realization)
-                output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
-                all_output_sample_2[:, i, :] = output_sample_i[n_sample:, :]
-            else:
-                output_sample_1[:, i, :] = model(X, n_realization)
-                all_output_sample_2[:, i, :] = model(Xt, n_realization)
+            #if n_realization == 1:
+            #    output_sample_i = model(np.r_[X, Xt])
+            #    output_sample_1[:, i, :] = output_sample_i[:n_sample].reshape(-1, 1)
+            #    all_output_sample_2[:, i, :] = output_sample_i[n_sample:].reshape(-1, 1)
+            #else:
+            output_sample_i = model(np.r_[X, Xt], n_realization)
+            output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
+            all_output_sample_2[:, i, :] = output_sample_i[n_sample:, :]
             
         self.output_sample_1 = output_sample_1
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=100, estimator='janon2', indiv_bootstraps=False):
+    def compute_indices(self, n_boot=100, estimator='janon2', same_bootstrap=True):
         """Compute the indices.
 
         Parameters
@@ -101,7 +100,7 @@ class KrigingIndices(Base):
         boot_idx = None
         first_indices = np.zeros((dim, n_realization, n_boot))
         for i in range(dim):
-            if not indiv_bootstraps:
+            if same_bootstrap:
                 boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
             for i_nz in range(n_realization):
                 Y = self.output_sample_1[:, i, i_nz]
@@ -120,7 +119,6 @@ class KrigingModel(ProbabilisticModel):
         The true function.
     input_distribution : ot.DistributionImplementation,
         The input distribution for the sampling of the observations.
-        
     """
     def __init__(self, model, input_distribution):
         self.true_model = model
