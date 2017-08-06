@@ -4,9 +4,8 @@
 
 
 ## TODO list
-
-- Add a new method for a Q2 test of the built Kriging model.
+- Implement all the indices
+	- Total order Sobol
 - Create few unitest functions
-	- On Ishigami
-	- On additive Gaussian model
-	- Test for each estimators
+	- 
+	- On additive Gaussian model with correlation
