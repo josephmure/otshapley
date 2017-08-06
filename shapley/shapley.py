@@ -13,7 +13,7 @@ class ShapleyIndices(Indices):
     def __init__(self, input_distribution):
         Indices.__init__(self, input_distribution)
         # Add shapley function
-        self.first_order_indice_func = None
+        self.indice_func = shapley_indices
 
 
 class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):

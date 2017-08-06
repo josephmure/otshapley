@@ -6,15 +6,20 @@ from shapley.base import ProbabilisticModel
 class Ishigami(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function for sensitivity analysis.
     """
-    def __init__(self):
+    def __init__(self, a=7, b=0.1):
         dim = 3
         margins = [ot.Uniform(-np.pi, np.pi)]*dim
         copula = ot.IndependentCopula(dim)
         input_distribution = ot.ComposedDistribution(margins, copula)
         ProbabilisticModel.__init__(self, model_func=ishigami_func, input_distribution=input_distribution)
-        self._first_order_sobol_indices = [0.314, 0.442, 0.]
+        self.a = a
+        self.b = b
 
-def ishigami_func(x):
+        # TODO: adapt the true result for any a and b.
+        self._first_order_sobol_indices = [0.314, 0.442, 0.]
+        self._total_sobol_indices = [0.56, 0.44, 0.24]
+
+def ishigami_func(x, a=7, b=0.1):
     """Ishigami function.
 
     Parameters
@@ -36,9 +41,9 @@ def ishigami_func(x):
     assert ndim == 3, "Dimension problem %d != %d " % (3, ndim)
 
     if ndim == 1:
-        y = np.sin(x[0]) + 7*np.sin(x[1])**2 + 0.1*x[2]**4 * np.sin(x[0])
+        y = np.sin(x[0]) + a*np.sin(x[1])**2 + b*x[2]**4 * np.sin(x[0])
     else:
-        y = np.sin(x[:, 0]) + 7*np.sin(x[:, 1])**2 + 0.1*x[:, 2]**4 * np.sin(x[:, 0])
+        y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + b*x[:, 2]**4 * np.sin(x[:, 0])
 
     return y
 
@@ -55,5 +60,3 @@ def additive_linear(x, beta=None):
     else:
         beta = np.asarray(beta)
     return np.dot(x, beta)
-
-ishigami_true_indices = [0.314, 0.442, 0.]

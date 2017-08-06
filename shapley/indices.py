@@ -1,7 +1,7 @@
 import openturns as ot
 import numpy as np
 
-from .base import Base
+from .base import Base, SensitivityResults
 
 
 class Indices(Base):
@@ -39,7 +39,36 @@ class Indices(Base):
             all_output_sample_2[:, i] = model(Xt)
 
         self.output_sample_1 = model(input_sample_1)
+        self.output_sample_2 = model(input_sample_2)
         self.all_output_sample_2 = all_output_sample_2
+
+    def compute_indices(self, n_boot=100, estimator='janon2'):
+        """Compute the indices.
+
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
+        
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        dim = self.dim
+        
+        first_indices = np.zeros((dim, n_boot))
+        total_indices = np.zeros((dim, n_boot))
+        Y1 = self.output_sample_1
+        Y2 = self.output_sample_2
+        for i in range(dim):
+            Y2t = self.all_output_sample_2[:, i]
+            first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, estimator=estimator)
+
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices)
+        return results
 
     def build_uncorrelated_mc_sample(self, model, n_sample):
         """
@@ -137,30 +166,5 @@ class Indices(Base):
             Y2i = self.all_output_sample_2[:, i]
             Y3i = self.all_output_sample_3[:, i]
             first_indices[i, :] = self.first_order_full_indice_func(Y1i, Y2i, Y3i, n_boot=n_boot, estimator=estimator)
-
-        return first_indices
-
-    def compute_indices(self, n_boot=100, estimator='janon2'):
-        """Compute the indices.
-
-        Parameters
-        ----------
-        n_boot : int,
-            The number of bootstrap samples.
-        estimator : str,
-            The type of estimator to use.
-        
-        Returns
-        -------
-        indices : list,
-            The list of computed indices.
-        """
-        dim = self.dim
-
-        first_indices = np.zeros((dim, n_boot))
-        Y = self.output_sample_1
-        for i in range(dim):
-            Yt = self.all_output_sample_2[:, i]
-            first_indices[i, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, estimator=estimator)
 
         return first_indices

@@ -1,6 +1,8 @@
 import openturns as ot
 import numpy as np
+import pandas as pd
 
+from .utils import create_df_from_mc_indices
 
 class Base(object):
     """Base class.
@@ -14,6 +16,7 @@ class Base(object):
         self.input_distribution = input_distribution
         self.first_order_indice_func = None
         self.total_indice_func = None
+        self.indice_func = None
 
     @property
     def input_distribution(self):
@@ -58,6 +61,74 @@ class Base(object):
             "Total indice function should be callable or None."
 
         self._first_order_indice_func = func
+
+
+class SensitivityResults(object):
+    """
+    """
+    def __init__(self, calculation_method='monte-carlo', first_indices=None, total_indices=None, true_indices=None):
+        self.first_indices = first_indices
+        self.total_indices = total_indices
+        self.true_indices = true_indices
+
+    @property
+    def true_indices(self):
+        """
+        """
+        return self._true_indices
+
+    @true_indices.setter
+    def true_indices(self, indices):
+        self._true_indices = indices
+
+    @property
+    def df_indices(self):
+        """
+        """
+        dim = self.ndim
+        n_boot = self.n_boot
+        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+
+        df_first = pd.DataFrame(self._first_indices.T, columns=columns)
+        df_total = pd.DataFrame(self._total_indices.T, columns=columns)
+
+        df = pd.concat([df_first, df_total])
+        err_gp = pd.DataFrame(['First']*n_boot)
+        err_mc = pd.DataFrame(['Total']*n_boot)
+        df['Indices'] = pd.concat([err_gp, err_mc])
+
+        df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name='Indice values')
+
+        return df
+    
+    @property
+    def first_indices(self):
+        """
+        """
+        return self._first_indices.mean(axis=1)
+
+    @first_indices.setter
+    def first_indices(self, indices):
+        if indices is not None:
+            self.ndim, self.n_boot = indices.shape
+        self._first_indices = indices
+
+    @property
+    def total_indices(self):
+        """
+        """
+        return self._total_indices.mean(axis=1)
+
+    @total_indices.setter
+    def total_indices(self, indices):
+        self._total_indices = indices
+
+    @property
+    def df_first_indices(self):
+        """
+        """
+        return create_df_from_mc_indices(self._first_indices)
+
 
 class Model(object):
     """Class to create Model object.
@@ -179,3 +250,22 @@ class ProbabilisticModel(Model):
             print ('There is no true first order sobol indices')
 
         return self._first_order_sobol_indices
+
+    @property
+    def total_sobol_indices(self):
+        """The true total sobol indices.
+        """
+        if self._total_sobol_indices is None:
+            print ('There is no true first order sobol indices')
+
+        return self._total_sobol_indices
+
+    @property
+    def indices(self):
+        """
+        """
+        df = pd.DataFrame({'True first': self._first_order_sobol_indices,
+                  'True total': self._total_sobol_indices,
+                  'Variables': ['$X_%d$' % (i+1) for i in range(self._ndim)]})
+        true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name='Indice values')
+        return true_indices
