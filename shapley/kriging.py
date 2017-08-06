@@ -69,11 +69,6 @@ class KrigingIndices(Base):
         for i in range(dim):
             Xt = input_sample_2.copy()
             Xt[:, i] = X[:, i]
-            #if n_realization == 1:
-            #    output_sample_i = model(np.r_[X, Xt])
-            #    output_sample_1[:, i, :] = output_sample_i[:n_sample].reshape(-1, 1)
-            #    all_output_sample_2[:, i, :] = output_sample_i[n_sample:].reshape(-1, 1)
-            #else:
             output_sample_i = model(np.r_[X, Xt], n_realization)
             output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
             all_output_sample_2[:, i, :] = output_sample_i[n_sample:, :]
@@ -81,27 +76,26 @@ class KrigingIndices(Base):
         self.output_sample_1 = output_sample_1
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=100, estimator='janon2', same_bootstrap=True):
+    def compute_indices(self, n_boot=100, estimator='janon2'):
         """Compute the indices.
 
         Parameters
         ----------
-        n_sample : int,
-            The number of sample.
+        n_boot : int,
+            The number of bootstrap samples.
         n_realization : int,
             The number of gaussian process realizations.
-        n_bootstrap : int,
-            The number of bootstrap samples.
+        estimator : str,
+            The estimation technique.
         """
         dim = self.dim
         n_sample = self.output_sample_1.shape[0]
         n_realization = self.output_sample_1.shape[2]
 
-        boot_idx = None
         first_indices = np.zeros((dim, n_realization, n_boot))
         for i in range(dim):
-            if same_bootstrap:
-                boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+            # The same bootstrap is taken for all the realizations.
+            boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
             for i_nz in range(n_realization):
                 Y = self.output_sample_1[:, i, i_nz]
                 Yt = self.all_output_sample_2[:, i, i_nz]

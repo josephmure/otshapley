@@ -140,7 +140,7 @@ class Indices(Base):
 
         return first_indices
 
-    def compute_indices(self, n_boot=1, estimator='janon2'):
+    def compute_indices(self, n_boot=100, estimator='janon2'):
         """Compute the indices.
 
         Parameters
@@ -156,6 +156,7 @@ class Indices(Base):
             The list of computed indices.
         """
         dim = self.dim
+
         first_indices = np.zeros((dim, n_boot))
         Y = self.output_sample_1
         for i in range(dim):

@@ -64,7 +64,7 @@ def shapley_indices(method, m, model, Xall, Xcond, d, Nv, No, Ni=3):
                 xx = np.c_[xj, [xjc]*Ni]
                 ind_inner = Nv + i_p*(d-1)*No*Ni + j*No*Ni + l*Ni
                 X[ind_inner:ind_inner+Ni, :] = xx[:, idx_perm_sorted]
-    
+
     # Model evaluation
     y = model(X)
 
@@ -115,7 +115,7 @@ def shapley_indices(method, m, model, Xall, Xcond, d, Nv, No, Ni=3):
         Vsob = 1 - Vsob 
         Tsob = Tsob / nT / VarY # averaging by number of permutations with j=1 
     
-    col = ['X%d' % (i+1) for i in range(d)]
+    col = ['S%d' % (i+1) for i in range(d)]
     effects = pd.DataFrame(np.array([Sh,Vsob,Tsob]), index = ['Shapley effects', 'First order Sobol', 'Total Sobol'], columns = col)
 
     return effects

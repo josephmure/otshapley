@@ -20,8 +20,11 @@ def set_style_paper():
     })
 
 
-def plot_violin(df, with_hue=False, true_indices=None, figsize=(8, 4), ylim=None, savefig=''):
-    fig, ax = plt.subplots(figsize=figsize)
+def plot_violin(df, with_hue=False, true_indices=None, ax=None, figsize=(8, 4), ylim=None, savefig=''):
+    """
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
     if with_hue:
         sns.violinplot(x='Variables', y='Indice values', data=df, hue='Error', ax=ax, split=True)
     else:
@@ -30,7 +33,10 @@ def plot_violin(df, with_hue=False, true_indices=None, figsize=(8, 4), ylim=None
         ax.plot(true_indices, 'yo', markersize=7, label='True indices')
         ax.legend(loc=0)
     ax.set_ylim(ylim)
-    fig.tight_layout()
+    if ax is None:
+        fig.tight_layout()
+
+    return ax
 
 def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8, 4), xlabel=None, ylim=None, ax=None):
     """
