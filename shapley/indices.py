@@ -32,17 +32,17 @@ class Indices(Base):
         # The modified samples for each dimension
         all_output_sample_2 = np.zeros((n_sample, dim))
 
-        X = input_sample_1
+        X1 = input_sample_1
         for i in range(dim):
-            Xt = input_sample_2.copy()
-            Xt[:, i] = X[:, i]
-            all_output_sample_2[:, i] = model(Xt)
+            X2t = input_sample_2.copy()
+            X2t[:, i] = X1[:, i]
+            all_output_sample_2[:, i] = model(X2t)
 
         self.output_sample_1 = model(input_sample_1)
         self.output_sample_2 = model(input_sample_2)
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=100, estimator='janon2'):
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
         """Compute the indices.
 
         Parameters
@@ -67,7 +67,7 @@ class Indices(Base):
             Y2t = self.all_output_sample_2[:, i]
             first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, estimator=estimator)
 
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices)
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='monte-carlo')
         return results
 
     def build_uncorrelated_mc_sample(self, model, n_sample):

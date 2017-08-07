@@ -63,13 +63,34 @@ class Base(object):
         self._first_order_indice_func = func
 
 
+def panel_data(data, columns=None):
+    dim, n_realization, n_boot = data.shape
+    names = ('Variables', 'Kriging', 'Bootstrap')
+    idx = [columns, range(n_realization), range(n_boot)]
+    index = pd.MultiIndex.from_product(idx, names=names)
+    df = pd.DataFrame(data.ravel(), columns=['Indice values'], index=index)
+    return df
+
 class SensitivityResults(object):
     """
     """
-    def __init__(self, calculation_method='monte-carlo', first_indices=None, total_indices=None, true_indices=None):
+    def __init__(self, first_indices=None, total_indices=None, calculation_method=None, true_indices=None):
         self.first_indices = first_indices
         self.total_indices = total_indices
         self.true_indices = true_indices
+        self.calculation_method = calculation_method
+
+    @property
+    def calculation_method(self):
+        """
+        """
+        return self._calculation_method
+
+    @calculation_method.setter
+    def calculation_method(self, method):
+        """
+        """
+        self._calculation_method = method
 
     @property
     def true_indices(self):
@@ -89,46 +110,130 @@ class SensitivityResults(object):
         n_boot = self.n_boot
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
 
-        df_first = pd.DataFrame(self._first_indices.T, columns=columns)
-        df_total = pd.DataFrame(self._total_indices.T, columns=columns)
+        if self._calculation_method == 'monte-carlo':
+            df_first = pd.DataFrame(self._first_indices.T, columns=columns)
+            df_total = pd.DataFrame(self._total_indices.T, columns=columns)
+            df_first['Indices'] = 'First'
+            df_total['Indices'] = 'Total'
 
-        df = pd.concat([df_first, df_total])
-        err_gp = pd.DataFrame(['First']*n_boot)
-        err_mc = pd.DataFrame(['Total']*n_boot)
-        df['Indices'] = pd.concat([err_gp, err_mc])
+            df = pd.concat([df_first, df_total])
+            df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name='Indice values')
 
-        df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name='Indice values')
+            return df
+        elif self._calculation_method == 'kriging-mc':
+            df_first = panel_data(self._first_indices, columns=columns)
+            df_total = panel_data(self._total_indices, columns=columns)
+            df_first_melt = pd.melt(df_first.T, value_name='Indice values')
+            df_total_melt = pd.melt(df_total.T, value_name='Indice values')
+            df_first_melt['Indices'] = 'First'
+            df_total_melt['Indices'] = 'Total'
 
-        return df
+            df = pd.concat([df_first_melt, df_total_melt])
+            return df
+        else:
+            raise('You should first specify the calculation method.')
     
+    @property
+    def full_df_indices(self):
+        """
+        """
+        dim = self.ndim
+        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        if self._calculation_method == 'monte-carlo':
+            pass
+        elif self._calculation_method == 'kriging-mc':
+            df_first = panel_data(self._first_indices, columns=columns)
+            df_total = panel_data(self._total_indices, columns=columns)
+            df_first['Indices'] = 'First'
+            df_total['Indices'] = 'Total'
+
+            df = pd.concat([df_first, df_total])
+            return df
+
     @property
     def first_indices(self):
         """
         """
-        return self._first_indices.mean(axis=1)
+        if self._calculation_method == 'monte-carlo':
+            return self._first_indices.mean(axis=1)
+        elif self._calculation_method == 'kriging-mc':
+            return self._first_indices.reshape(self.ndim, -1).mean(axis=1)
 
     @first_indices.setter
     def first_indices(self, indices):
         if indices is not None:
-            self.ndim, self.n_boot = indices.shape
+            if indices.ndim == 2:
+                self.ndim, self.n_boot = indices.shape
+            elif indices.ndim == 3:
+                self.ndim, self.n_realization, self.n_boot = indices.shape
+
         self._first_indices = indices
 
     @property
     def total_indices(self):
         """
         """
-        return self._total_indices.mean(axis=1)
+        if self._calculation_method == 'monte-carlo':
+            return self._total_indices.mean(axis=1)
+        elif self._calculation_method == 'kriging-mc':
+            return self._total_indices.reshape(self.ndim, -1).mean(axis=1)
 
     @total_indices.setter
     def total_indices(self, indices):
         self._total_indices = indices
 
     @property
+    def full_df_first_indices(self):
+        """
+        """
+        dim = self.ndim
+        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        if self._calculation_method == 'monte-carlo':
+            pass
+        elif self._calculation_method == 'kriging-mc':
+            df = panel_data(self._first_indices, columns=columns)
+        return df
+
+    @property
+    def full_df_total_indices(self):
+        """
+        """
+        dim = self.ndim
+        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        if self._calculation_method == 'monte-carlo':
+            pass
+        elif self._calculation_method == 'kriging-mc':
+            df = panel_data(self._total_indices, columns=columns)
+        return df
+
+    @property
     def df_first_indices(self):
         """
         """
-        return create_df_from_mc_indices(self._first_indices)
+        df = melt_kriging(self.full_df_first_indices)
+        return df
 
+    @property
+    def df_total_indices(self):
+        """
+        """
+        df = melt_kriging(self.full_df_total_indices)
+        return df
+
+
+def melt_kriging(df):
+    """
+    """
+    df_boot = df.mean(level=['Variables', 'Kriging'])
+    df_boot_melt = pd.melt(df_boot.T, value_name='Indice values')
+    df_boot_melt['Error'] = 'Kriging'
+
+    df_kriging = df.mean(level=['Variables', 'Bootstrap'])
+    df_kriging_melt = pd.melt(df_kriging.T, value_name='Indice values')
+    df_kriging_melt['Error'] = 'Bootstrap'
+
+    df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
+    return df
 
 class Model(object):
     """Class to create Model object.

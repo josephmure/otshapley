@@ -13,3 +13,5 @@
 - Unique compute_indices_function in Indices class that works for kriging too.
 - Create few unitest functions
 	- On additive Gaussian model with correlation
+
+- Should we normalize the model output?

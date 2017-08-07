@@ -20,6 +20,46 @@ def set_style_paper():
     })
 
 
+def plot_sensitivity_results(results, kind='violin', indice='both', ax=None):
+    """
+    """
+    if indice == 'both':
+        df_indices = results.df_indices
+        hue = 'Indices'
+        split = False
+    elif indice == 'first':
+        df_indices = results.df_first_indices
+        hue = 'Error'
+        split = True
+    elif indice == 'total':
+        df_indices = results.df_total_indices
+        hue = 'Error'
+        split = True
+    else:
+        raise ValueError('Unknow indice parameter {0}'.format(indice))
+
+    if kind == 'violin':
+        sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
+    elif kind == 'box':
+        # TODO: to correct
+        sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
+    else:
+        raise ValueError('Unknow kind {0}'.format(kind))
+        
+    if results.true_indices is not None:
+        if indice == 'both':
+            true_indices = results.true_indices
+            palette = {'True first': "y", 'True total': "m"}
+            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, 
+                          dodge=True, palette=palette, size=9);
+        elif indice == 'first':
+            true_indices = results.true_indices[results.true_indices['Indices'] == 'True first']
+            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
+        elif indice == 'total':
+            true_indices = results.true_indices[results.true_indices['Indices'] == 'True total']
+            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
+    return ax
+
 def plot_violin(df, with_hue=False, true_indices=None, ax=None, figsize=(8, 4), ylim=None, savefig=''):
     """
     """

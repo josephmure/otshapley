@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor
-from .base import Base, ProbabilisticModel
+from .base import Base, ProbabilisticModel, SensitivityResults
 
 
 class KrigingIndices(Base):
@@ -64,19 +64,23 @@ class KrigingIndices(Base):
         # The modified samples for each dimension
         all_output_sample_2 = np.zeros((n_sample, dim, n_realization))
         output_sample_1 = np.zeros((n_sample, dim, n_realization))
+        output_sample_2 = np.zeros((n_sample, dim, n_realization))
 
-        X = input_sample_1
+        X1 = input_sample_1
+        X2 = input_sample_2
         for i in range(dim):
-            Xt = input_sample_2.copy()
-            Xt[:, i] = X[:, i]
-            output_sample_i = model(np.r_[X, Xt], n_realization)
+            X2t = input_sample_2.copy()
+            X2t[:, i] = X1[:, i]
+            output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
             output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
-            all_output_sample_2[:, i, :] = output_sample_i[n_sample:, :]
+            output_sample_2[:, i, :] = output_sample_i[n_sample:2*n_sample, :]
+            all_output_sample_2[:, i, :] = output_sample_i[2*n_sample:, :]
             
         self.output_sample_1 = output_sample_1
+        self.output_sample_2 = output_sample_2
         self.all_output_sample_2 = all_output_sample_2
 
-    def compute_indices(self, n_boot=100, estimator='janon2'):
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
         """Compute the indices.
 
         Parameters
@@ -93,15 +97,19 @@ class KrigingIndices(Base):
         n_realization = self.output_sample_1.shape[2]
 
         first_indices = np.zeros((dim, n_realization, n_boot))
+        total_indices = np.zeros((dim, n_realization, n_boot))
         for i in range(dim):
             # The same bootstrap is taken for all the realizations.
             boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
             for i_nz in range(n_realization):
-                Y = self.output_sample_1[:, i, i_nz]
-                Yt = self.all_output_sample_2[:, i, i_nz]
-                first_indices[i, i_nz, :] = self.first_order_indice_func(Y, Yt, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
+                Y1 = self.output_sample_1[:, i, i_nz]
+                Y2 = self.output_sample_2[:, i, i_nz]
+                Y2t = self.all_output_sample_2[:, i, i_nz]
+                first_indices[i, i_nz, :], total_indices[i, i_nz, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot,
+                                                                                        boot_idx=boot_idx, estimator=estimator)
 
-        return first_indices
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='kriging-mc')
+        return results
 
 
 class KrigingModel(ProbabilisticModel):
