@@ -297,7 +297,7 @@ True_Sh = Sh_effects_gaussian_linear_model(coeff_model, cov, corr)
 # In[ ]:
 
 method = 'exact'
-bootstrap = 5
+bootstrap = 10
 m = None
 Nv = 10**4
 No = 10**3
