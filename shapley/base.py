@@ -2,7 +2,6 @@ import openturns as ot
 import numpy as np
 import pandas as pd
 
-from .utils import create_df_from_mc_indices
 
 class Base(object):
     """Base class.
@@ -70,6 +69,7 @@ def panel_data(data, columns=None):
     index = pd.MultiIndex.from_product(idx, names=names)
     df = pd.DataFrame(data.ravel(), columns=['Indice values'], index=index)
     return df
+
 
 class SensitivityResults(object):
     """
