@@ -160,6 +160,21 @@ class SensitivityResults(object):
         self._first_indices = indices
 
     @property
+    def full_first_indices(self):
+        """
+        """
+        return self._first_indices
+
+    
+    @property
+    def full_total_indices(self):
+        """
+        """
+        if np.isnan(self._total_indices).all():
+            raise ValueError('The value is not registered')
+        return self._total_indices
+
+    @property
     def total_indices(self):
         """
         """

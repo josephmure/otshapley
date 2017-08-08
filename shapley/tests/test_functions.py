@@ -19,6 +19,34 @@ class Ishigami(ProbabilisticModel):
         self._first_order_sobol_indices = [0.314, 0.442, 0.]
         self._total_sobol_indices = [0.56, 0.44, 0.24]
 
+class AdditiveGaussian(ProbabilisticModel):
+    """This class collect all the information about the Ishigami test function for sensitivity analysis.
+    """
+    def __init__(self, dim, beta=None):
+        margins = [ot.Normal()]*dim
+        copula = ot.IndependentCopula(dim)
+        input_distribution = ot.ComposedDistribution(margins, copula)
+        ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
+        self.beta = beta
+
+        # TODO: adapt the true result 
+
+def additive_func(x, a=None):
+    """
+    """
+    x = np.asarray(x).squeeze()
+    if x.ndim == 1:
+        ndim = x.shape[0]
+    else:
+        ndim = x.shape[1]
+
+    if a is None:
+        a = np.ones((ndim, ))
+
+    y = np.dot(x, a)
+        
+    return y
+
 def ishigami_func(x, a=7, b=0.1):
     """Ishigami function.
 

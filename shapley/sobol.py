@@ -4,6 +4,7 @@ import numpy as np
 from .indices import Indices
 from .kriging import KrigingIndices
 
+
 class SobolIndices(Indices):
     """The class of Sobol indices.
 
@@ -42,19 +43,9 @@ def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
     n_sample = Y1.shape[0]
     assert n_sample == Y2.shape[0], "Matrices should have the same sizes"
     assert n_sample == Y2t.shape[0], "Matrices should have the same sizes"
+    assert estimator in _ESTIMATORS, 'Unknow estimator {0}'.format(estimator)
 
-    if estimator == 'sobol':
-        estimator = sobol_estimator
-    elif estimator == 'sobol2002':
-        estimator = sobol2002_estimator
-    elif estimator == 'sobol2007':
-        estimator = sobol2007_estimator
-    elif estimator == 'soboleff1':
-        estimator = soboleff1_estimator
-    elif estimator == 'soboleff2':
-        estimator = soboleff2_estimator
-    else:
-        raise ValueError('Unknow estimator {0}'.format(estimator))
+    estimator = _ESTIMATORS[estimator]
 
     if boot_idx is None:
         boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
@@ -103,11 +94,10 @@ def sobol_estimator(Y1, Y2, Y2t):
         Y1 = Y1.reshape(1, -1)
         Y2t = Y2t.reshape(1, -1)
 
-    n_sample = Y1.shape[1]
-    mean2 = m(Y1)
+    mean2 = m(Y1)**2
     var = v(Y1)
 
-    var_indiv = s(Y2t * Y1)/(n_sample - 1) - mean2
+    var_indiv = m(Y2t * Y1) - mean2
     first_indice = var_indiv / var
     total_indice = None
 
@@ -193,3 +183,11 @@ def soboleff2_estimator(Y1, Y2, Y2t):
     total_indice = 1. - var_total  / var
 
     return first_indice, total_indice
+
+_ESTIMATORS = {
+    'sobol': sobol_estimator,
+    'sobol2002': sobol2002_estimator,
+    'sobol2007': sobol2007_estimator,
+    'soboleff1': soboleff1_estimator,
+    'soboleff2': soboleff2_estimator
+    }

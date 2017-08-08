@@ -77,8 +77,8 @@ class Indices(Base):
         # Normal distribution
         norm_dist = ot.Normal(dim)
 
-        margins = [self._input_distribution.getMarginal(i) for i in range(dim)]
-        copula = self._input_distribution.getCopula()
+        margins = [ot.Distribution(self._input_distribution.getMarginal(i)) for i in range(dim)]
+        copula = ot.Copula(self._input_distribution.getCopula())
 
         # Independent samples
         U_1 = np.asarray(norm_dist.getSample(n_sample))
@@ -92,12 +92,8 @@ class Indices(Base):
 
         for i in range(dim):
             # 1) Permutations
-            if False:
-                U_1_i = U_1[:, order_i]
-                U_2_i = U_2[:, order_i]
-            else:
-                U_1_i = U_1
-                U_2_i = U_2
+            U_1_i = U_1
+            U_2_i = U_2
 
             # 2) Pick and Freeze
             U_3_i = U_2_i.copy()
@@ -105,9 +101,7 @@ class Indices(Base):
             U_4_i = U_2_i.copy()
             U_4_i[:, -1] = U_1_i[:, -1]
 
-            order_i = list(range(i, dim))
-            if i > 0:
-                order_i += list(range(i))
+            order_i = np.roll(range(dim), -i)
 
             margins_i = [margins[j] for j in order_i]
             params = np.asarray(copula.getParameter())
@@ -156,15 +150,17 @@ class Indices(Base):
         self.all_output_sample_3 = all_output_sample_3
         self.all_output_sample_4 = all_output_sample_4
 
-    def compute_uncorrelated_indices(self, n_boot=1, estimator='mara'):
+    def compute_uncorrelated_indices(self, n_boot=1, estimator='soboleff2'):
         """
         """
         dim = self.dim
         first_indices = np.zeros((dim, n_boot))
+        total_indices = np.zeros((dim, n_boot))
         for i in range(dim):
-            Y1i = self.all_output_sample_1[:, i]
-            Y2i = self.all_output_sample_2[:, i]
-            Y3i = self.all_output_sample_3[:, i]
-            first_indices[i, :] = self.first_order_full_indice_func(Y1i, Y2i, Y3i, n_boot=n_boot, estimator=estimator)
+            Y1 = self.all_output_sample_1[:, i]
+            Y2 = self.all_output_sample_2[:, i]
+            Y2t = self.all_output_sample_3[:, i]
+            first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, estimator=estimator)
 
-        return first_indices
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='monte-carlo')
+        return results
