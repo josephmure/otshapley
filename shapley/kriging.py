@@ -58,6 +58,8 @@ class KrigingIndices(Base):
         ------
         """
         dim = self.dim
+
+        # Simulate the two independent samples
         input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
         input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
         
@@ -69,8 +71,9 @@ class KrigingIndices(Base):
         X1 = input_sample_1
         X2 = input_sample_2
         for i in range(dim):
-            X2t = input_sample_2.copy()
+            X2t = X2.copy()
             X2t[:, i] = X1[:, i]
+
             output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
             output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
             output_sample_2[:, i, :] = output_sample_i[n_sample:2*n_sample, :]
@@ -110,6 +113,8 @@ class KrigingIndices(Base):
 
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='kriging-mc')
         return results
+
+
 
 
 class KrigingModel(ProbabilisticModel):

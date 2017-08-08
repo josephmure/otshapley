@@ -15,16 +15,15 @@ class SobolIndices(Indices):
     """
     def __init__(self, input_distribution):
         Indices.__init__(self, input_distribution)
-        self.first_order_full_indice_func = first_order_full_sobol_indice
         self.indice_func = sobol_indices
 
 
-class SobolKrigingIndices(KrigingIndices, SobolIndices):
+class SobolKrigingIndices(SobolIndices, KrigingIndices):
     """Estimation of the Sobol indices using Gaussian Process approximation.
     """
     def __init__(self, input_distribution):
-        KrigingIndices.__init__(self, input_distribution)
         SobolIndices.__init__(self, input_distribution)
+        KrigingIndices.__init__(self, input_distribution)
 
 
 def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
