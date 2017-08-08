@@ -17,13 +17,69 @@ class SobolIndices(Indices):
         Indices.__init__(self, input_distribution)
         self.indice_func = sobol_indices
 
+    def build_mc_sample(self, model, n_sample):
+        """
+        """
+        Indices.build_mc_sample(self, model=model, n_sample=n_sample, n_realization=1)
+    
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
+        """Compute the indices.
 
-class SobolKrigingIndices(SobolIndices, KrigingIndices):
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
+        
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        return Indices.compute_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='monte-carlo')
+
+
+class SobolKrigingIndices(KrigingIndices, Indices):
     """Estimation of the Sobol indices using Gaussian Process approximation.
     """
     def __init__(self, input_distribution):
-        SobolIndices.__init__(self, input_distribution)
         KrigingIndices.__init__(self, input_distribution)
+        Indices.__init__(self, input_distribution)
+        self.indice_func = sobol_indices
+
+    def build_mc_sample(self, model, n_sample=100, n_realization=10):
+        """Build the Monte-Carlo samples.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        n_realization : int,
+            The number of Gaussian Process realizations.
+        """
+        Indices.build_mc_sample(self, model, n_sample, n_realization)
+
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
+        """Compute the indices.
+
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
+        
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        return Indices.compute_indices(self, n_boot=n_boot, 
+                                       estimator=estimator, 
+                                       calculation_method='kriging-mc')
 
 
 def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
