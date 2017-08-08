@@ -28,6 +28,18 @@ class SobolIndices(Indices):
             The sampling size of Monte-Carlo
         """
         Indices.build_mc_sample(self, model=model, n_sample=n_sample, n_realization=1)
+
+    def build_uncorrelated_mc_sample(self, model, n_sample=100):
+        """Build the Monte-Carlo samples.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        """
+        Indices.build_uncorrelated_mc_sample(self, model=model, n_sample=n_sample, n_realization=1)
     
     def compute_indices(self, n_boot=100, estimator='soboleff2'):
         """Compute the indices.
@@ -46,6 +58,15 @@ class SobolIndices(Indices):
         """
         return Indices.compute_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='monte-carlo')
 
+    def compute_full_indices(self, n_boot, estimator):
+        """
+        """
+        return Indices.compute_full_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='monte-carlo')
+
+    def compute_ind_indices(self, n_boot, estimator):
+        """
+        """
+        return Indices.compute_ind_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='monte-carlo')
 
 class SobolKrigingIndices(KrigingIndices, Indices):
     """Estimation of the Sobol indices using Gaussian Process approximation.
@@ -69,6 +90,18 @@ class SobolKrigingIndices(KrigingIndices, Indices):
         """
         Indices.build_mc_sample(self, model, n_sample, n_realization)
 
+    def build_uncorrelated_mc_sample(self, model, n_sample=100, n_realization=10):
+        """Build the Monte-Carlo samples.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        """
+        Indices.build_uncorrelated_mc_sample(self, model=model, n_sample=n_sample, n_realization=n_realization)
+    
     def compute_indices(self, n_boot=100, estimator='soboleff2'):
         """Compute the indices.
 
@@ -88,6 +121,15 @@ class SobolKrigingIndices(KrigingIndices, Indices):
                                        estimator=estimator, 
                                        calculation_method='kriging-mc')
 
+    def compute_full_indices(self, n_boot, estimator):
+        """
+        """
+        return Indices.compute_full_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='kriging-mc')
+
+    def compute_ind_indices(self, n_boot, estimator):
+        """
+        """
+        return Indices.compute_ind_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='kriging-mc')
 
 def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
     """Compute the Sobol indices from the to

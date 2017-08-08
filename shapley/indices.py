@@ -102,8 +102,8 @@ class Indices(Base):
 
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results
-
-    def build_uncorrelated_mc_sample(self, model, n_sample):
+    
+    def build_uncorrelated_mc_sample(self, model, n_sample, n_realization):
         """
         """
         dim = self.dim
@@ -114,13 +114,19 @@ class Indices(Base):
         # Independent samples
         U_1 = np.asarray(norm_dist.getSample(n_sample))
         U_2 = np.asarray(norm_dist.getSample(n_sample))
-
+        
         # The modified samples for each dimension
-        all_output_sample_1 = np.zeros((n_sample, dim))
-        all_output_sample_2 = np.zeros((n_sample, dim))
-        all_output_sample_2t = np.zeros((n_sample, dim))
-        all_output_sample_2t1 = np.zeros((n_sample, dim))
-
+        if n_realization == 1:
+            all_output_sample_1 = np.zeros((n_sample, dim))
+            all_output_sample_2 = np.zeros((n_sample, dim))
+            all_output_sample_2t = np.zeros((n_sample, dim))
+            all_output_sample_2t1 = np.zeros((n_sample, dim))
+        else:
+            all_output_sample_1 = np.zeros((n_sample, dim, n_realization))
+            all_output_sample_2 = np.zeros((n_sample, dim, n_realization))
+            all_output_sample_2t = np.zeros((n_sample, dim, n_realization))
+            all_output_sample_2t1 = np.zeros((n_sample, dim, n_realization))
+        
         for i in range(dim):
             # Copy of the input dstribution
             margins = [ot.Distribution(self._input_distribution.getMarginal(i)) for i in range(dim)]
@@ -150,44 +156,74 @@ class Indices(Base):
             X_3_i = inv_rosenblatt_transform_i(U_3_i)
             X_4_i = inv_rosenblatt_transform_i(U_4_i)
             assert X_1_i.shape[1] == dim, "Wrong dimension"
-
+            
             # 4) Model evaluations
-            all_output_sample_1[:, i] = model(X_1_i)
-            all_output_sample_2[:, i] = model(X_2_i)
-            all_output_sample_2t[:, i] = model(X_3_i)
-            all_output_sample_2t1[:, i] = model(X_4_i)
+            if n_realization == 1:
+                all_output_sample_1[:, i] = model(X_1_i)
+                all_output_sample_2[:, i] = model(X_2_i)
+                all_output_sample_2t[:, i] = model(X_3_i)
+                all_output_sample_2t1[:, i] = model(X_4_i)
+            else:
+                output_sample_i = model(np.r_[X_1_i, X_2_i, X_3_i, X_4_i], n_realization)
+                all_output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
+                all_output_sample_2[:, i, :] = output_sample_i[n_sample:2*n_sample, :]
+                all_output_sample_2t[:, i, :] = output_sample_i[2*n_sample:3*n_sample, :]
+                all_output_sample_2t1[:, i, :] = output_sample_i[3*n_sample:, :]
 
         self.all_output_sample_1 = all_output_sample_1
         self.all_output_sample_2 = all_output_sample_2
         self.all_output_sample_2t = all_output_sample_2t
         self.all_output_sample_2t1 = all_output_sample_2t1
         
-    def compute_full_indices(self, n_boot=1, estimator='soboleff2'):
+    def compute_full_indices(self, n_boot, estimator, calculation_method):
         """
         """
-        dim = self.dim
-        first_indices = np.zeros((dim, n_boot))
-        total_indices = np.zeros((dim, n_boot))
-        for i in range(dim):
-            Y1 = self.all_output_sample_1[:, i]
-            Y2 = self.all_output_sample_2[:, i]
-            Y2t = self.all_output_sample_2t[:, i]
-            first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, estimator=estimator)
-
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='monte-carlo')
+        results = self.__compute_indice(n_boot, estimator, calculation_method, type='full')
         return results
 
-    def compute_ind_indices(self, n_boot=1, estimator='soboleff2'):
+    def compute_ind_indices(self, n_boot, estimator, calculation_method):
+        """
+        """
+        results = self.__compute_indice(n_boot, estimator, calculation_method, type='ind')
+        return results
+
+    def __compute_indice(self, n_boot, estimator, calculation_method, type):
         """
         """
         dim = self.dim
-        first_indices = np.zeros((dim, n_boot))
-        total_indices = np.zeros((dim, n_boot))
-        for i in range(dim):
-            Y1 = self.all_output_sample_1[:, i]
-            Y2 = self.all_output_sample_2[:, i]
-            Y2t = self.all_output_sample_2t1[:, i]
-            first_indices[i-1, :], total_indices[i-1, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, estimator=estimator)
+        n_sample = self.all_output_sample_1.shape[0]
 
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method='monte-carlo')
+        if self.all_output_sample_1.ndim == 2:
+            n_realization = 1
+            first_indices = np.zeros((dim, n_boot))
+            total_indices = np.zeros((dim, n_boot))
+        else:
+            n_realization = self.all_output_sample_1.shape[2]
+            first_indices = np.zeros((dim, n_realization, n_boot))
+            total_indices = np.zeros((dim, n_realization, n_boot))
+
+        if type == 'full':
+            sample_Y2t = self.all_output_sample_2t
+            dev = 0
+        elif type == 'ind':
+            sample_Y2t = self.all_output_sample_2t1
+            dev = 1
+        else:
+            raise ValueError('Unknow type of indice {0}'.format(type))
+
+        for i in range(dim):
+            boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+            for i_nz in range(n_realization):
+                if n_realization == 1:
+                    Y1 = self.all_output_sample_1[:, i]
+                    Y2 = self.all_output_sample_2[:, i]
+                    Y2t = sample_Y2t[:, i]
+                    first_indices[i-dev, :], total_indices[i-dev, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
+                else:
+                    Y1 = self.all_output_sample_1[:, i, i_nz]
+                    Y2 = self.all_output_sample_2[:, i, i_nz]
+                    Y2t = sample_Y2t[:, i, i_nz]
+                    first_indices[i-dev, i_nz, :], total_indices[i-dev, i_nz, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
+
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results
