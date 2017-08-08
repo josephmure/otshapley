@@ -3,6 +3,9 @@ import numpy as np
 import pandas as pd
 
 
+VALUE_NAME = 'Indice values'
+
+
 class Base(object):
     """Base class.
 
@@ -13,8 +16,6 @@ class Base(object):
     """
     def __init__(self, input_distribution):
         self.input_distribution = input_distribution
-        self.first_order_indice_func = None
-        self.total_indice_func = None
         self.indice_func = None
 
     @property
@@ -36,38 +37,27 @@ class Base(object):
         return self._input_distribution.getDimension()
 
     @property
-    def first_order_indice_func(self):
-        """Function for 1st indice computation.
+    def indice_func(self):
+        """Function to estimate the indice.
         """
-        return self._first_order_indice_func
+        return self._indice_func
 
-    @first_order_indice_func.setter
-    def first_order_indice_func(self, func):
+    @indice_func.setter
+    def indice_func(self, func):
         assert callable(func) or func is None, \
-            "First order indice function should be callable or None."
+            "Indice function should be callable or None."
 
-        self._first_order_indice_func = func
-
-    @property
-    def total_indice_func(self):
-        """Function for 1st indice computation.
-        """
-        return self._first_order_indice_func
-
-    @total_indice_func.setter
-    def total_indice_func(self, func):
-        assert callable(func) or func is None, \
-            "Total indice function should be callable or None."
-
-        self._first_order_indice_func = func
+        self._indice_func = func
 
 
 def panel_data(data, columns=None):
+    """
+    """
     dim, n_realization, n_boot = data.shape
     names = ('Variables', 'Kriging', 'Bootstrap')
     idx = [columns, range(n_realization), range(n_boot)]
     index = pd.MultiIndex.from_product(idx, names=names)
-    df = pd.DataFrame(data.ravel(), columns=['Indice values'], index=index)
+    df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
     return df
 
 
@@ -117,14 +107,14 @@ class SensitivityResults(object):
             df_total['Indices'] = 'Total'
 
             df = pd.concat([df_first, df_total])
-            df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name='Indice values')
+            df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
 
             return df
         elif self._calculation_method == 'kriging-mc':
             df_first = panel_data(self._first_indices, columns=columns)
             df_total = panel_data(self._total_indices, columns=columns)
-            df_first_melt = pd.melt(df_first.T, value_name='Indice values')
-            df_total_melt = pd.melt(df_total.T, value_name='Indice values')
+            df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
+            df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
             df_first_melt['Indices'] = 'First'
             df_total_melt['Indices'] = 'Total'
 
@@ -225,11 +215,11 @@ def melt_kriging(df):
     """
     """
     df_boot = df.mean(level=['Variables', 'Kriging'])
-    df_boot_melt = pd.melt(df_boot.T, value_name='Indice values')
+    df_boot_melt = pd.melt(df_boot.T, value_name=VALUE_NAME)
     df_boot_melt['Error'] = 'Kriging'
 
     df_kriging = df.mean(level=['Variables', 'Bootstrap'])
-    df_kriging_melt = pd.melt(df_kriging.T, value_name='Indice values')
+    df_kriging_melt = pd.melt(df_kriging.T, value_name=VALUE_NAME)
     df_kriging_melt['Error'] = 'Bootstrap'
 
     df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
@@ -277,6 +267,7 @@ class ProbabilisticModel(Model):
         Model.__init__(self, model_func=model_func)
         self.input_distribution = input_distribution
         self._first_order_sobol_indices = None
+        self._total_sobol_indices = None
 
     @property
     def copula(self):
@@ -366,11 +357,21 @@ class ProbabilisticModel(Model):
         return self._total_sobol_indices
 
     @property
-    def indices(self):
+    def shapley_indices(self):
+        """The true shapley effects.
+        """
+        if self._shapley_indice is None:
+            print ('There is no true first order shapley effect.')
+
+        return self._shapley_indice
+
+    @property
+    def sobol_indices(self):
         """
         """
-        df = pd.DataFrame({'True first': self._first_order_sobol_indices,
-                  'True total': self._total_sobol_indices,
+        df = pd.DataFrame({'True first': self.first_order_sobol_indices,
+                  'True total': self.total_sobol_indices,
                   'Variables': ['$X_%d$' % (i+1) for i in range(self._ndim)]})
-        true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name='Indice values')
+        true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+        
         return true_indices

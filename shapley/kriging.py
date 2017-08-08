@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import openturns as ot
-from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from .base import Base, ProbabilisticModel, SensitivityResults
 
 
@@ -126,6 +126,9 @@ class KrigingModel(ProbabilisticModel):
         self.true_model = model
         ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
 
+        self._basis = None
+        self._covariance = None
+
     def generate_sample(self, n_sample=50, sampling='lhs'):
         """Generate the sample to build the model.
 
@@ -174,7 +177,8 @@ class KrigingModel(ProbabilisticModel):
                 prediction = np.asarray(kriging_model(X)).squeeze()
                 return prediction
         elif library == 'sklearn':
-            kriging_result = GaussianProcessRegressor()
+            self.covariance = kernel
+            kriging_result = GaussianProcessRegressor(kernel=self.covariance)
             kriging_result.fit(self.input_sample, self.output_sample)
             self.kriging_result = kriging_result
             def meta_model(X, n_realization=1):
@@ -223,7 +227,7 @@ class KrigingModel(ProbabilisticModel):
 
     @covariance.setter
     def covariance(self, covariance):
-        self._covariance = get_covariance(covariance, self._ndim)
+        self._covariance = get_covariance(covariance, self.library, self._ndim)
 
     @property
     def basis(self):
@@ -238,7 +242,7 @@ class KrigingModel(ProbabilisticModel):
     def compute_score_q2_loo(self):
         """Leave One Out estimation of Q2.
         """
-        q2 = q2_loo(self.input_sample, self.output_sample, self.basis, self.covariance)
+        q2 = q2_loo(self.input_sample, self.output_sample, self.library, self.covariance, self.basis)
         self.score_q2_loo = q2
         return q2
 
@@ -287,7 +291,8 @@ def q2_cv(ytrue, ypred):
     ypred = ypred.squeeze()
     q2 = max(0., test_q2(ytrue, ypred))
     return q2
-def q2_loo(input_sample, output_sample, basis, covariance):
+
+def q2_loo(input_sample, output_sample, library, covariance, basis=None):
     """Leave One Out estimation of Q2.
     """
     n_sample, dim = input_sample.shape
@@ -298,12 +303,19 @@ def q2_loo(input_sample, output_sample, basis, covariance):
         input_sample_i = np.delete(input_sample, i, axis=0)
         output_sample_i = np.delete(output_sample, i, axis=0).reshape(-1, 1)
         
-        kriging_algo = ot.KrigingAlgorithm(input_sample_i, output_sample_i, covariance, basis)
-        kriging_algo.run()
-        meta_model_mean = kriging_algo.getResult().getMetaModel()
+        if library == 'OT':
+            kriging_algo = ot.KrigingAlgorithm(input_sample_i, output_sample_i, covariance, basis)
+            kriging_algo.run()
+            meta_model_mean = kriging_algo.getResult().getMetaModel()
+        elif library == 'sklearn':
+            kriging_result = GaussianProcessRegressor(kernel=covariance)
+            kriging_result.fit(input_sample_i, output_sample_i)
+            meta_model_mean = kriging_result.predict
+        else:
+            raise ValueError('Unknow library {0}'.format(library))
         
-        ypred[i] = np.asarray(meta_model_mean(xi))
-
+        ypred[i] = np.asarray(meta_model_mean(xi.reshape(1, -1)))
+        
     ytrue = output_sample.squeeze()
     q2 = max(0., test_q2(ytrue, ypred))
     
@@ -325,22 +337,33 @@ def get_basis(basis_type, dim):
     return basis
 
 
-def get_covariance(kernel, dim=None):
+def get_covariance(kernel, library, dim=None):
     """
     """
     if isinstance(kernel, ot.CovarianceModelImplementation):
         covariance = kernel
     else:
-        assert dim is not None, "Dimension should be given"
-        if kernel == 'matern':
-            covariance = ot.MaternModel(dim)
-        elif kernel == 'exponential':
-            covariance = ot.ExponentialModel(dim)
-        elif kernel == 'generalized-exponential':
-            covariance = ot.GeneralizedExponential(dim)
-        elif kernel == 'spherical':
-            covariance = ot.SphericalModel(dim)
+        if library == 'OT':
+            assert dim is not None, "Dimension should be given"
+            if kernel == 'matern':
+                covariance = ot.MaternModel(dim)
+            elif kernel == 'exponential':
+                covariance = ot.ExponentialModel(dim)
+            elif kernel == 'generalized-exponential':
+                covariance = ot.GeneralizedExponential(dim)
+            elif kernel == 'spherical':
+                covariance = ot.SphericalModel(dim)
+            else:
+                raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
+        elif library == 'sklearn':
+            if kernel == 'matern':
+                covariance = kernels.Matern()
+            elif kernel == 'exponential':
+                covariance = kernels.ExpSineSquared()
+            elif kernel == 'RBF':
+                covariance = kernels.RBF()
+            else:
+                raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
         else:
-            raise ValueError('Unknow kernel {0}'.format(kernel))
-
+            raise ValueError('Unknow library {0}'.format(library))
     return covariance
