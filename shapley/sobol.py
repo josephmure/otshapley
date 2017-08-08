@@ -15,16 +15,78 @@ class SobolIndices(Indices):
     """
     def __init__(self, input_distribution):
         Indices.__init__(self, input_distribution)
-        self.first_order_full_indice_func = first_order_full_sobol_indice
         self.indice_func = sobol_indices
 
+    def build_mc_sample(self, model, n_sample):
+        """Build the Monte-Carlo samples.
 
-class SobolKrigingIndices(KrigingIndices, SobolIndices):
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        """
+        Indices.build_mc_sample(self, model=model, n_sample=n_sample, n_realization=1)
+    
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
+        """Compute the indices.
+
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
+        
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        return Indices.compute_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='monte-carlo')
+
+
+class SobolKrigingIndices(KrigingIndices, Indices):
     """Estimation of the Sobol indices using Gaussian Process approximation.
     """
     def __init__(self, input_distribution):
         KrigingIndices.__init__(self, input_distribution)
-        SobolIndices.__init__(self, input_distribution)
+        Indices.__init__(self, input_distribution)
+        self.indice_func = sobol_indices
+
+    def build_mc_sample(self, model, n_sample=100, n_realization=10):
+        """Build the Monte-Carlo samples.
+
+        Parameters
+        ----------
+        model : callable,
+            The model function.
+        n_sample : int,
+            The sampling size of Monte-Carlo
+        n_realization : int,
+            The number of Gaussian Process realizations.
+        """
+        Indices.build_mc_sample(self, model, n_sample, n_realization)
+
+    def compute_indices(self, n_boot=100, estimator='soboleff2'):
+        """Compute the indices.
+
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
+        
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        return Indices.compute_indices(self, n_boot=n_boot, 
+                                       estimator=estimator, 
+                                       calculation_method='kriging-mc')
 
 
 def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
@@ -60,28 +122,6 @@ def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
         total_indice = total_indice.item()
 
     return first_indice, total_indice
-
-
-def first_order_full_sobol_indice(Y1, Y2, Y2i, n_boot=1, boot_idx=None, estimator='mara'):
-    """Compute the Sobol indices from the to
-
-    Parameters
-    ----------
-    """
-    n_sample = Y1.shape[0]
-
-    if estimator == 'mara':
-        estimator = mara_estimator
-
-    first_indice = np.zeros((n_boot, ))
-    first_indice[0] = estimator(Y1, Y2, Y2i)
-    if boot_idx is None:
-        boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
-    if n_boot > 1:
-        first_indice[1:] = estimator(Y1[boot_idx], Y2[boot_idx], Y2i[boot_idx])
-
-    return first_indice if n_boot > 1 else first_indice.item()
-
 
 m = lambda x : x.mean(axis=1)
 s = lambda x : x.sum(axis=1)
