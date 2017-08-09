@@ -24,27 +24,27 @@ class AdditiveGaussian(ProbabilisticModel):
     """
     def __init__(self, dim, beta=None):
         margins = [ot.Normal()]*dim
-        copula = ot.IndependentCopula(dim)
+        copula = ot.NormalCopula(dim)
         input_distribution = ot.ComposedDistribution(margins, copula)
         ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
         self.beta = beta
 
         # TODO: adapt the true result 
 
-def additive_func(x, a=None):
+def additive_func(x, beta=None):
     """
     """
-    x = np.asarray(x).squeeze()
+    x = np.asarray(x)
     if x.ndim == 1:
-        ndim = x.shape[0]
+        dim = x.shape[0]
     else:
-        ndim = x.shape[1]
+        n_sample, dim = x.shape
 
-    if a is None:
-        a = np.ones((ndim, ))
-
-    y = np.dot(x, a)
-        
+    if beta is None:
+        beta = np.ones((dim, ))
+    else:
+        beta = np.asarray(beta)
+    y = np.dot(x, beta)
     return y
 
 def ishigami_func(x, a=7, b=0.1):
@@ -74,17 +74,3 @@ def ishigami_func(x, a=7, b=0.1):
         y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + b*x[:, 2]**4 * np.sin(x[:, 0])
 
     return y
-
-def additive_linear(x, beta=None):
-    """
-    """
-    x = np.asarray(x)
-    if x.ndim == 1:
-        dim = x.shape[0]
-    else:
-        n_sample, dim = x.shape
-    if beta is None:
-        beta = np.ones((dim, ))
-    else:
-        beta = np.asarray(beta)
-    return np.dot(x, beta)

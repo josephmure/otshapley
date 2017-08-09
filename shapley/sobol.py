@@ -199,6 +199,8 @@ def sobol2002_estimator(Y1, Y2, Y2t):
 
     var_indiv = s(Y2t * Y1)/(n_sample - 1) - mean2
     var_total = s(Y2t * Y2)/(n_sample - 1) - mean2
+    #var_indiv = m(Y2t * Y1) - mean2
+    #var_total = m(Y2t * Y2) - mean2
     first_indice = var_indiv / var
     total_indice = 1. - var_total  / var
 
@@ -217,8 +219,10 @@ def sobol2007_estimator(Y1, Y2, Y2t):
     mean2 = m(Y1*Y2)
     var = v(Y1)
 
-    var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
-    var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
+    #var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
+    #var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
+    var_indiv = m((Y2t - Y2) * Y1)
+    var_total = m((Y2t - Y1) * Y2)
     first_indice = var_indiv / var
     total_indice = 1. - var_total / var
 

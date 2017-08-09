@@ -292,9 +292,22 @@ class ProbabilisticModel(Model):
     
     @copula.setter
     def copula(self, copula):
-        assert isinstance(copula, ot.CopulaImplementation), "The copula should be an OpenTURNS implementation."
+        assert isinstance(copula, (ot.CopulaImplementation, ot.DistributionImplementationPointer)), \
+            "The copula should be an OpenTURNS implementation: {0}".format(type(copula))
         self._input_distribution = ot.ComposedDistribution(self._margins, copula)
         self._copula = copula
+
+    @property
+    def copula_parameters(self):
+        """
+        """
+        return self._copula_parameters
+
+    @copula_parameters.setter
+    def copula_parameters(self, params):
+        copula = self._copula
+        copula.setParameter(params)
+        self.copula = copula
 
     @property
     def margins(self):
@@ -362,6 +375,12 @@ class ProbabilisticModel(Model):
 
         return self._first_order_sobol_indices
 
+    @first_order_sobol_indices.setter
+    def first_order_sobol_indices(self, indices):
+        """
+        """
+        self._first_order_sobol_indices = indices
+
     @property
     def total_sobol_indices(self):
         """The true total sobol indices.
@@ -370,6 +389,12 @@ class ProbabilisticModel(Model):
             print ('There is no true first order sobol indices')
 
         return self._total_sobol_indices
+
+    @total_sobol_indices.setter
+    def total_sobol_indices(self, indices):
+        """
+        """
+        self._total_sobol_indices = indices
 
     @property
     def shapley_indices(self):

@@ -84,6 +84,7 @@ class Indices(Base):
             first_indices = np.zeros((dim, n_realization, n_boot))
             total_indices = np.zeros((dim, n_realization, n_boot))
             
+        # TODO: merge with full and ind 
         # TODO: cythonize this
         for i in range(dim):
             boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
