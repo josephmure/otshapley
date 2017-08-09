@@ -426,6 +426,7 @@ True_Sh = Sh_effects_gaussian_linear_model(coeff_model, cov, corr)
 col = ['Sh','ICmin','ICmax']
 writer = pd.ExcelWriter('index.xlsx', engine='xlsxwriter')
 
+
 # In[11]:
 
 method = 'exact'
@@ -445,9 +446,70 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index1')
 # In[ ]:
 
 bootstrap = 10
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index1')
+
+
+# In[14]:
+
+bootstrap = 10
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index2')
+
+
+# In[ ]:
+
+bootstrap = 10
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index2')
+
+
+# ###### Config 2
+
+# In[ ]:
+
+method = 'exact'
+m = None
+Nv = 10**4
+No = 10**3
+Ni = 10**2
+
+perms, y = design_output(method, m, gaussian_model, Xall, Xcond, d, Nv, No, Ni)
+
+bootstrap = 10
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index1')
+
+
+# In[ ]:
+
+bootstrap = 10
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index1')
+
+
+# In[ ]:
+
+bootstrap = 10
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index2')
+
+
+# In[ ]:
+
+bootstrap = 10
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index2')
+
+
+# In[ ]:
 
 # Close the Pandas Excel writer and output the Excel file.
 writer.save()
