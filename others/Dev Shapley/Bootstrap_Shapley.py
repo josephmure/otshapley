@@ -445,10 +445,20 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index1')
 
 # In[ ]:
 
+print('1/8')
+
+
+# In[ ]:
+
 bootstrap = 10**4
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index1')
+
+
+# In[ ]:
+
+print('2/8')
 
 
 # In[14]:
@@ -461,10 +471,20 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index2')
 
 # In[ ]:
 
+print('3/8')
+
+
+# In[ ]:
+
 bootstrap = 10**4
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index2')
+
+
+# In[ ]:
+
+print('4/8')
 
 
 # ###### Config 2
@@ -487,10 +507,20 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index1')
 
 # In[ ]:
 
+print('5/8')
+
+
+# In[ ]:
+
 bootstrap = 10**4
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index1')
+
+
+# In[ ]:
+
+print('6/8')
 
 
 # In[ ]:
@@ -503,10 +533,20 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index2')
 
 # In[ ]:
 
+print('7/8')
+
+
+# In[ ]:
+
 bootstrap = 10**4
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index2')
+
+
+# In[ ]:
+
+print('8/8')
 
 
 # In[ ]:
