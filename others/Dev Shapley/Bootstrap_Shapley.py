@@ -437,7 +437,7 @@ Ni = 3
 
 perms, y = design_output(method, m, gaussian_model, Xall, Xcond, d, Nv, No, Ni)
 
-bootstrap = 10
+bootstrap = 10**3
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index1')
@@ -445,7 +445,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index1')
 
 # In[ ]:
 
-bootstrap = 10
+bootstrap = 10**4
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index1')
@@ -453,7 +453,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index1')
 
 # In[14]:
 
-bootstrap = 10
+bootstrap = 10**3
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index2')
@@ -461,7 +461,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index2')
 
 # In[ ]:
 
-bootstrap = 10
+bootstrap = 10**4
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index2')
@@ -479,7 +479,7 @@ Ni = 10**2
 
 perms, y = design_output(method, m, gaussian_model, Xall, Xcond, d, Nv, No, Ni)
 
-bootstrap = 10
+bootstrap = 10**3
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index1')
@@ -487,7 +487,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index1')
 
 # In[ ]:
 
-bootstrap = 10
+bootstrap = 10**4
 Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index1')
@@ -495,7 +495,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index1')
 
 # In[ ]:
 
-bootstrap = 10
+bootstrap = 10**3
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index2')
@@ -503,7 +503,7 @@ pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index2')
 
 # In[ ]:
 
-bootstrap = 10
+bootstrap = 10**4
 Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
 
 pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index2')
