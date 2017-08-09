@@ -194,7 +194,7 @@ def sobol2002_estimator(Y1, Y2, Y2t):
         Y2t = Y2t.reshape(1, -1)
 
     n_sample = Y1.shape[1]
-    mean2 = m(Y1*Y2)
+    mean2 = s(Y1*Y2)/(n_sample - 1)
     var = v(Y1)
 
     var_indiv = s(Y2t * Y1)/(n_sample - 1) - mean2
