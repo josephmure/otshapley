@@ -31,11 +31,11 @@ class Indices(Base):
         # The modified samples for each dimension
 
         if n_realization == 1:
-            all_output_sample_2 = np.zeros((n_sample, dim))
+            all_output_sample_2t = np.zeros((n_sample, dim))
             output_sample_1 = model(input_sample_1)
             output_sample_2 = model(input_sample_2)
         else:
-            all_output_sample_2 = np.zeros((n_sample, dim, n_realization))
+            all_output_sample_2t = np.zeros((n_sample, dim, n_realization))
             output_sample_1 = np.zeros((n_sample, dim, n_realization))
             output_sample_2 = np.zeros((n_sample, dim, n_realization))
 
@@ -46,16 +46,18 @@ class Indices(Base):
             X2t[:, i] = X1[:, i]
 
             if n_realization == 1:
-                all_output_sample_2[:, i] = model(X2t)
+                all_output_sample_2t[:, i] = model(X2t)
             else:
                 output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
                 output_sample_1[:, i, :] = output_sample_i[:n_sample, :]
                 output_sample_2[:, i, :] = output_sample_i[n_sample:2*n_sample, :]
-                all_output_sample_2[:, i, :] = output_sample_i[2*n_sample:, :]
+                all_output_sample_2t[:, i, :] = output_sample_i[2*n_sample:, :]
             
         self.output_sample_1 = output_sample_1
         self.output_sample_2 = output_sample_2
-        self.all_output_sample_2 = all_output_sample_2
+        self.all_output_sample_2t = all_output_sample_2t
+        self.n_sample = n_sample
+        self.n_realization = 1
     
     def build_uncorrelated_mc_sample(self, model, n_sample, n_realization):
         """
@@ -128,35 +130,53 @@ class Indices(Base):
         self.all_output_sample_2 = all_output_sample_2
         self.all_output_sample_2t = all_output_sample_2t
         self.all_output_sample_2t1 = all_output_sample_2t1
+        self.n_sample = n_sample
+        self.n_realization = n_realization
 
     def compute_indices(self, n_boot, estimator, calculation_method):
-        """Compute the indices.
+        """
+        """
+        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='classic')
+        return results
 
-        Parameters
-        ----------
-        n_boot : int,
-            The number of bootstrap samples.
-        estimator : str,
-            The type of estimator to use.
-        
-        Returns
-        -------
-        indices : list,
-            The list of computed indices.
+    def compute_full_indices(self, n_boot, estimator, calculation_method):
+        """
+        """
+        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='full')
+        return results
+
+    def compute_ind_indices(self, n_boot, estimator, calculation_method):
+        """
+        """
+        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='ind')
+        return results
+
+    def __compute_indice(self, n_boot, estimator, calculation_method, indice_type):
+        """
         """
         dim = self.dim
-        n_sample = self.output_sample_1.shape[0]
+        n_sample = self.n_sample
+        n_realization = self.n_realization
 
-        if self.output_sample_1.ndim == 1:
-            n_realization = 1
+        if n_realization == 1:
             first_indices = np.zeros((dim, n_boot))
             total_indices = np.zeros((dim, n_boot))
         else:
-            n_realization = self.output_sample_1.shape[2]
             first_indices = np.zeros((dim, n_realization, n_boot))
             total_indices = np.zeros((dim, n_realization, n_boot))
-            
-        # TODO: merge with full and ind 
+
+        if indice_type == 'full':
+            dev = 0
+            sample_Y2t = self.all_output_sample_2t
+        elif indice_type == 'ind':
+            dev = 1
+            sample_Y2t = self.all_output_sample_2t1
+        elif indice_type == 'classic':
+            dev = 0
+            sample_Y2t = self.all_output_sample_2t
+        else:
+            raise ValueError('Unknow type of indice {0}'.format(type))
+
         # TODO: cythonize this
         boot_idx = None
         for i in range(dim):
@@ -164,63 +184,12 @@ class Indices(Base):
                 boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot, n_sample))
             for i_nz in range(n_realization):
                 if n_realization == 1:
-                    Y1 = self.output_sample_1
-                    Y2 = self.output_sample_2
-                    Y2t = self.all_output_sample_2[:, i]
-                    first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-                else:
-                    Y1 = self.output_sample_1[:, i, i_nz]
-                    Y2 = self.output_sample_2[:, i, i_nz]
-                    Y2t = self.all_output_sample_2[:, i, i_nz]
-                    first_indices[i, i_nz, :], total_indices[i, i_nz, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
-        return results
-
-    def compute_full_indices(self, n_boot, estimator, calculation_method):
-        """
-        """
-        results = self.__compute_indice(n_boot, estimator, calculation_method, type='full')
-        return results
-
-    def compute_ind_indices(self, n_boot, estimator, calculation_method):
-        """
-        """
-        results = self.__compute_indice(n_boot, estimator, calculation_method, type='ind')
-        return results
-
-    def __compute_indice(self, n_boot, estimator, calculation_method, type):
-        """
-        """
-        dim = self.dim
-        n_sample = self.all_output_sample_1.shape[0]
-
-        if self.all_output_sample_1.ndim == 2:
-            n_realization = 1
-            first_indices = np.zeros((dim, n_boot))
-            total_indices = np.zeros((dim, n_boot))
-        else:
-            n_realization = self.all_output_sample_1.shape[2]
-            first_indices = np.zeros((dim, n_realization, n_boot))
-            total_indices = np.zeros((dim, n_realization, n_boot))
-
-        if type == 'full':
-            sample_Y2t = self.all_output_sample_2t
-            dev = 0
-        elif type == 'ind':
-            sample_Y2t = self.all_output_sample_2t1
-            dev = 1
-        else:
-            raise ValueError('Unknow type of indice {0}'.format(type))
-
-        boot_idx = None
-        for i in range(dim):
-            if n_boot > 0:
-                boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot, n_sample))
-            for i_nz in range(n_realization):
-                if n_realization == 1:
-                    Y1 = self.all_output_sample_1[:, i]
-                    Y2 = self.all_output_sample_2[:, i]
+                    if indice_type == 'classic':
+                        Y1 = self.output_sample_1
+                        Y2 = self.output_sample_2
+                    else:
+                        Y1 = self.all_output_sample_1[:, i]
+                        Y2 = self.all_output_sample_2[:, i]
                     Y2t = sample_Y2t[:, i]
                     first_indices[i-dev, :], total_indices[i-dev, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
                 else:
