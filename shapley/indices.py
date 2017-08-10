@@ -48,12 +48,12 @@ class Indices(Base):
             X2t[:, i] = X1[:, i]
 
             if n_realization == 1:
-                all_output_sample_2t[i, :] = model(X2t)
+                all_output_sample_2t[i] = model(X2t)
             else:
                 output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
-                output_sample_1[i, :, :] = output_sample_i[:n_sample, :]
-                output_sample_2[i, :, :] = output_sample_i[n_sample:2*n_sample, :]
-                all_output_sample_2t[i, :, :] = output_sample_i[2*n_sample:, :]
+                output_sample_1[i] = output_sample_i[:n_sample, :]
+                output_sample_2[i] = output_sample_i[n_sample:2*n_sample, :]
+                all_output_sample_2t[i] = output_sample_i[2*n_sample:, :]
             
         self.all_output_sample_1 = output_sample_1
         self.all_output_sample_2 = output_sample_2
@@ -75,10 +75,10 @@ class Indices(Base):
         
         # The modified samples for each dimension
         if n_realization == 1:
-            all_output_sample_1 = np.zeros((n_sample, dim))
-            all_output_sample_2 = np.zeros((n_sample, dim))
-            all_output_sample_2t = np.zeros((n_sample, dim))
-            all_output_sample_2t1 = np.zeros((n_sample, dim))
+            all_output_sample_1 = np.zeros((dim, n_sample, ))
+            all_output_sample_2 = np.zeros((dim, n_sample, ))
+            all_output_sample_2t = np.zeros((dim, n_sample, ))
+            all_output_sample_2t1 = np.zeros((dim, n_sample, ))
         else:
             all_output_sample_1 = np.zeros((dim, n_sample, n_realization))
             all_output_sample_2 = np.zeros((dim, n_sample, n_realization))
@@ -117,16 +117,14 @@ class Indices(Base):
             
             # 4) Model evaluations
             if n_realization == 1:
-                all_output_sample_1[:, i] = model(X_1_i)
-                all_output_sample_2[:, i] = model(X_2_i)
-                all_output_sample_2t[:, i] = model(X_3_i)
-                all_output_sample_2t1[:, i] = model(X_4_i)
+                output_sample_i = model(np.r_[X_1_i, X_2_i, X_3_i, X_4_i])
             else:
                 output_sample_i = model(np.r_[X_1_i, X_2_i, X_3_i, X_4_i], n_realization)
-                all_output_sample_1[i, :, :] = output_sample_i[:n_sample, :]
-                all_output_sample_2[i, :, :] = output_sample_i[n_sample:2*n_sample, :]
-                all_output_sample_2t[i, :, :] = output_sample_i[2*n_sample:3*n_sample, :]
-                all_output_sample_2t1[i, :, :] = output_sample_i[3*n_sample:, :]
+
+            all_output_sample_1[i] = output_sample_i[:n_sample]
+            all_output_sample_2[i] = output_sample_i[n_sample:2*n_sample]
+            all_output_sample_2t[i] = output_sample_i[2*n_sample:3*n_sample]
+            all_output_sample_2t1[i] = output_sample_i[3*n_sample:]
 
         self.all_output_sample_1 = all_output_sample_1
         self.all_output_sample_2 = all_output_sample_2
@@ -160,8 +158,12 @@ class Indices(Base):
         n_sample = self.n_sample
         n_realization = self.n_realization
         
-        first_indices = np.zeros((dim, n_boot, n_realization))
-        total_indices = np.zeros((dim, n_boot, n_realization))
+        if n_realization == 1:
+            first_indices = np.zeros((dim, n_boot))
+            total_indices = np.zeros((dim, n_boot))
+        else:
+            first_indices = np.zeros((dim, n_boot, n_realization))
+            total_indices = np.zeros((dim, n_boot, n_realization))
 
         if indice_type in ['classic', 'full']:
             dev = 0
@@ -171,52 +173,17 @@ class Indices(Base):
             sample_Y2t = self.all_output_sample_2t1
         else:
             raise ValueError('Unknow type of indice {0}'.format(type))
-        boot_idx = None
-        if n_boot > 1:
-            boot_idx = np.random.randint(0, n_sample, size=(n_sample, n_boot))
 
-        Y1 = self.all_output_sample_1
-        Y2 = self.all_output_sample_2
-        Y2t = sample_Y2t
-        print('oui', Y1.shape)
-        first, total = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-
-        first_indices = first[np.roll(range(dim), dev)]
-        total_indices = total[np.roll(range(dim), dev)]
-        if False:
         # TODO: cythonize this
-            boot_idx = None
-            for i in range(dim):
-                if n_boot > 1:
-                    boot_idx = np.random.randint(0, n_sample, size=(n_boot, n_sample))
+        boot_idx = None
+        for i in range(dim):
+            if n_boot > 1:
+                boot_idx = np.random.randint(0, n_sample, size=(n_boot, n_sample))
 
-                Y1 = self.all_output_sample_1[:, i]
-                Y2 = self.all_output_sample_2[:, i]
-                Y2t = sample_Y2t[:, i]
-                first, total = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-
-                first_indices[i-dev], total_indices[i-dev] = first.reshape(-1, n_realization), total.reshape(-1, n_realization)
-                if False:
-                    for i_nz in range(n_realization):
-                        if n_realization == 1:
-                            if indice_type == 'classic':
-                                Y1 = self.output_sample_1
-                                Y2 = self.output_sample_2
-                            else:
-                                Y1 = self.all_output_sample_1[:, i]
-                                Y2 = self.all_output_sample_2[:, i]
-                            Y2t = sample_Y2t[:, i]
-                            first_indices[i-dev, :], total_indices[i-dev, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-                        else:
-                            Y1 = self.all_output_sample_1[:, i, i_nz]
-                            Y2 = self.all_output_sample_2[:, i, i_nz]
-                            Y2t = sample_Y2t[:, i, i_nz]
-                            first_indices[i-dev, i_nz, :], total_indices[i-dev, i_nz, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-
-
-        if n_realization == 1:
-            first_indices = first_indices.squeeze()
-            total_indices = total_indices.squeeze()
+            Y1 = self.all_output_sample_1[i]
+            Y2 = self.all_output_sample_2[i]
+            Y2t = sample_Y2t[i]
+            first_indices[i-dev], total_indices[i-dev] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
 
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results

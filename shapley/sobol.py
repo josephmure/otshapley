@@ -150,13 +150,9 @@ def sobol_indices(Y1, Y2, Y2t, boot_idx=None, estimator='sobol2002'):
     assert estimator in _ESTIMATORS, 'Unknow estimator {0}'.format(estimator)
 
     estimator = _ESTIMATORS[estimator]
-    print(Y1[:, boot_idx].shape)
+
     # When boot_idx is None, it reshapes the Y as (1, -1).
-    if boot_idx is not None:
-        first_indice, total_indice = estimator(Y1[:, boot_idx], Y2[:, boot_idx], Y2t[:, boot_idx])
-    else:
-        first_indice, total_indice = estimator(Y1, Y2, Y2t)
-    print(first_indice.shape)
+    first_indice, total_indice = estimator(Y1[boot_idx], Y2[boot_idx], Y2t[boot_idx])
 
     return first_indice, total_indice
 
