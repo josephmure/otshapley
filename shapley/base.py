@@ -144,16 +144,18 @@ class SensitivityResults(object):
     def first_indices(self):
         """
         """
-        if self._calculation_method == 'monte-carlo':
-            return self._first_indices.mean(axis=1)
-        elif self._calculation_method == 'kriging-mc':
-            return self._first_indices.reshape(self.ndim, -1).mean(axis=1)
+        return self._first_indices.reshape(self.ndim, -1).mean(axis=1)
 
     @first_indices.setter
     def first_indices(self, indices):
         if indices is not None:
-            if indices.ndim == 2:
+            if indices.ndim == 1:
+                self.ndim = indices.shape[0]
+                self.n_boot = 1
+                self.n_realization = 1
+            elif indices.ndim == 2:
                 self.ndim, self.n_boot = indices.shape
+                self.n_realization = 1
             elif indices.ndim == 3:
                 self.ndim, self.n_realization, self.n_boot = indices.shape
 
@@ -178,10 +180,7 @@ class SensitivityResults(object):
     def total_indices(self):
         """
         """
-        if self._calculation_method == 'monte-carlo':
-            return self._total_indices.mean(axis=1)
-        elif self._calculation_method == 'kriging-mc':
-            return self._total_indices.reshape(self.ndim, -1).mean(axis=1)
+        return self._total_indices.reshape(self.ndim, -1).mean(axis=1)
 
     @total_indices.setter
     def total_indices(self, indices):
