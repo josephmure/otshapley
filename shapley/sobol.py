@@ -150,13 +150,13 @@ def sobol_indices(Y1, Y2, Y2t, boot_idx=None, estimator='sobol2002'):
     assert estimator in _ESTIMATORS, 'Unknow estimator {0}'.format(estimator)
 
     estimator = _ESTIMATORS[estimator]
-
+    print(Y1[:, boot_idx].shape)
     # When boot_idx is None, it reshapes the Y as (1, -1).
-    first_indice, total_indice = estimator(Y1[boot_idx], Y2[boot_idx], Y2t[boot_idx])
-
-    if boot_idx is None:
-        first_indice = first_indice.item()
-        total_indice = total_indice.item()
+    if boot_idx is not None:
+        first_indice, total_indice = estimator(Y1[:, boot_idx], Y2[:, boot_idx], Y2t[:, boot_idx])
+    else:
+        first_indice, total_indice = estimator(Y1, Y2, Y2t)
+    print(first_indice.shape)
 
     return first_indice, total_indice
 
@@ -200,10 +200,10 @@ def sobol2007_estimator(Y1, Y2, Y2t):
     mean2 = m(Y1*Y2)
     var = v(Y1)
 
-    var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
-    var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
-    #var_indiv = m((Y2t - Y2) * Y1)
-    #var_total = m((Y2t - Y1) * Y2)
+    #var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
+    #var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
+    var_indiv = m((Y2t - Y2) * Y1)
+    var_total = m((Y2t - Y1) * Y2)
     first_indice = var_indiv / var
     total_indice = 1. - var_total / var
 
