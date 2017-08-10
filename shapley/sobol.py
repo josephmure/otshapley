@@ -131,7 +131,7 @@ class SobolKrigingIndices(KrigingIndices, Indices):
         """
         return Indices.compute_ind_indices(self, n_boot=n_boot, estimator=estimator, calculation_method='kriging-mc')
 
-def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
+def sobol_indices(Y1, Y2, Y2t, boot_idx=None, estimator='sobol2002'):
     """Compute the Sobol indices from the to
 
     Parameters
@@ -151,15 +151,10 @@ def sobol_indices(Y1, Y2, Y2t, n_boot=1, boot_idx=None, estimator='sobol2002'):
 
     estimator = _ESTIMATORS[estimator]
 
+    # When boot_idx is None, it reshapes the Y as (1, -1).
+    first_indice, total_indice = estimator(Y1[boot_idx], Y2[boot_idx], Y2t[boot_idx])
+
     if boot_idx is None:
-        boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
-
-    first_indice = np.zeros((n_boot, ))
-    total_indice = np.zeros((n_boot, ))
-    first_indice[0], total_indice[0] = estimator(Y1, Y2, Y2t)
-    first_indice[1:], total_indice[1:] = estimator(Y1[boot_idx], Y2[boot_idx], Y2t[boot_idx])
-
-    if n_boot == 1:
         first_indice = first_indice.item()
         total_indice = total_indice.item()
 
@@ -172,10 +167,6 @@ v = lambda x : x.var(axis=1)
 def sobol_estimator(Y1, Y2, Y2t):
     """
     """
-    if Y1.ndim == 1:
-        Y1 = Y1.reshape(1, -1)
-        Y2t = Y2t.reshape(1, -1)
-
     mean2 = m(Y1)**2
     var = v(Y1)
 
@@ -188,11 +179,6 @@ def sobol_estimator(Y1, Y2, Y2t):
 def sobol2002_estimator(Y1, Y2, Y2t):
     """
     """
-    if Y1.ndim == 1:
-        Y1 = Y1.reshape(1, -1)
-        Y2 = Y2.reshape(1, -1)
-        Y2t = Y2t.reshape(1, -1)
-
     n_sample = Y1.shape[1]
     mean2 = s(Y1*Y2)/(n_sample - 1)
     var = v(Y1)
@@ -210,19 +196,14 @@ def sobol2002_estimator(Y1, Y2, Y2t):
 def sobol2007_estimator(Y1, Y2, Y2t):
     """
     """
-    if Y1.ndim == 1:
-        Y1 = Y1.reshape(1, -1)
-        Y2 = Y2.reshape(1, -1)
-        Y2t = Y2t.reshape(1, -1)
-
     n_sample = Y1.shape[1]
     mean2 = m(Y1*Y2)
     var = v(Y1)
 
-    #var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
-    #var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
-    var_indiv = m((Y2t - Y2) * Y1)
-    var_total = m((Y2t - Y1) * Y2)
+    var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
+    var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
+    #var_indiv = m((Y2t - Y2) * Y1)
+    #var_total = m((Y2t - Y1) * Y2)
     first_indice = var_indiv / var
     total_indice = 1. - var_total / var
 
@@ -232,11 +213,6 @@ def sobol2007_estimator(Y1, Y2, Y2t):
 def soboleff1_estimator(Y1, Y2, Y2t):
     """
     """
-    if Y1.ndim == 1:
-        Y1 = Y1.reshape(1, -1)
-        Y2 = Y2.reshape(1, -1)
-        Y2t = Y2t.reshape(1, -1)
-
     n_sample = Y1.shape[1]
     mean2 = m(Y1) * m(Y2t)
     var = m(Y1**2) - m(Y1)**2
@@ -253,11 +229,6 @@ def soboleff1_estimator(Y1, Y2, Y2t):
 def soboleff2_estimator(Y1, Y2, Y2t):
     """
     """
-    if Y1.ndim == 1:
-        Y1 = Y1.reshape(1, -1)
-        Y2 = Y2.reshape(1, -1)
-        Y2t = Y2t.reshape(1, -1)
-
     n_sample = Y1.shape[1]
     mean2 = m((Y1 + Y2t)/2.)**2
     var = m((Y1**2 + Y2t**2 )/2.) - m((Y1 + Y2t)/2.)**2

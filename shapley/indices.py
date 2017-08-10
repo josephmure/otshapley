@@ -56,53 +56,6 @@ class Indices(Base):
         self.output_sample_1 = output_sample_1
         self.output_sample_2 = output_sample_2
         self.all_output_sample_2 = all_output_sample_2
-
-    def compute_indices(self, n_boot, estimator, calculation_method):
-        """Compute the indices.
-
-        Parameters
-        ----------
-        n_boot : int,
-            The number of bootstrap samples.
-        estimator : str,
-            The type of estimator to use.
-        
-        Returns
-        -------
-        indices : list,
-            The list of computed indices.
-        """
-        dim = self.dim
-        n_sample = self.output_sample_1.shape[0]
-
-        if self.output_sample_1.ndim == 1:
-            n_realization = 1
-            first_indices = np.zeros((dim, n_boot))
-            total_indices = np.zeros((dim, n_boot))
-        else:
-            n_realization = self.output_sample_1.shape[2]
-            first_indices = np.zeros((dim, n_realization, n_boot))
-            total_indices = np.zeros((dim, n_realization, n_boot))
-            
-        # TODO: merge with full and ind 
-        # TODO: cythonize this
-        for i in range(dim):
-            boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
-            for i_nz in range(n_realization):
-                if n_realization == 1:
-                    Y1 = self.output_sample_1
-                    Y2 = self.output_sample_2
-                    Y2t = self.all_output_sample_2[:, i]
-                    first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
-                else:
-                    Y1 = self.output_sample_1[:, i, i_nz]
-                    Y2 = self.output_sample_2[:, i, i_nz]
-                    Y2t = self.all_output_sample_2[:, i, i_nz]
-                    first_indices[i, i_nz, :], total_indices[i, i_nz, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot,
-                                                                                            boot_idx=boot_idx, estimator=estimator)
-
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
-        return results
     
     def build_uncorrelated_mc_sample(self, model, n_sample, n_realization):
         """
@@ -175,7 +128,55 @@ class Indices(Base):
         self.all_output_sample_2 = all_output_sample_2
         self.all_output_sample_2t = all_output_sample_2t
         self.all_output_sample_2t1 = all_output_sample_2t1
+
+    def compute_indices(self, n_boot, estimator, calculation_method):
+        """Compute the indices.
+
+        Parameters
+        ----------
+        n_boot : int,
+            The number of bootstrap samples.
+        estimator : str,
+            The type of estimator to use.
         
+        Returns
+        -------
+        indices : list,
+            The list of computed indices.
+        """
+        dim = self.dim
+        n_sample = self.output_sample_1.shape[0]
+
+        if self.output_sample_1.ndim == 1:
+            n_realization = 1
+            first_indices = np.zeros((dim, n_boot))
+            total_indices = np.zeros((dim, n_boot))
+        else:
+            n_realization = self.output_sample_1.shape[2]
+            first_indices = np.zeros((dim, n_realization, n_boot))
+            total_indices = np.zeros((dim, n_realization, n_boot))
+            
+        # TODO: merge with full and ind 
+        # TODO: cythonize this
+        boot_idx = None
+        for i in range(dim):
+            if n_boot > 0:
+                boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot, n_sample))
+            for i_nz in range(n_realization):
+                if n_realization == 1:
+                    Y1 = self.output_sample_1
+                    Y2 = self.output_sample_2
+                    Y2t = self.all_output_sample_2[:, i]
+                    first_indices[i, :], total_indices[i, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
+                else:
+                    Y1 = self.output_sample_1[:, i, i_nz]
+                    Y2 = self.output_sample_2[:, i, i_nz]
+                    Y2t = self.all_output_sample_2[:, i, i_nz]
+                    first_indices[i, i_nz, :], total_indices[i, i_nz, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
+
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
+        return results
+
     def compute_full_indices(self, n_boot, estimator, calculation_method):
         """
         """
@@ -212,19 +213,21 @@ class Indices(Base):
         else:
             raise ValueError('Unknow type of indice {0}'.format(type))
 
+        boot_idx = None
         for i in range(dim):
-            boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot-1, n_sample))
+            if n_boot > 0:
+                boot_idx = np.random.randint(low=0, high=n_sample, size=(n_boot, n_sample))
             for i_nz in range(n_realization):
                 if n_realization == 1:
                     Y1 = self.all_output_sample_1[:, i]
                     Y2 = self.all_output_sample_2[:, i]
                     Y2t = sample_Y2t[:, i]
-                    first_indices[i-dev, :], total_indices[i-dev, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
+                    first_indices[i-dev, :], total_indices[i-dev, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
                 else:
                     Y1 = self.all_output_sample_1[:, i, i_nz]
                     Y2 = self.all_output_sample_2[:, i, i_nz]
                     Y2t = sample_Y2t[:, i, i_nz]
-                    first_indices[i-dev, i_nz, :], total_indices[i-dev, i_nz, :] = self.indice_func(Y1, Y2, Y2t, n_boot=n_boot, boot_idx=boot_idx, estimator=estimator)
+                    first_indices[i-dev, i_nz, :], total_indices[i-dev, i_nz, :] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
 
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results

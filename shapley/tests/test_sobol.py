@@ -10,7 +10,7 @@ from shapley.sobol import SobolIndices
 from shapley.tests.test_functions import Ishigami, AdditiveGaussian
 from shapley.tests.utils import true_gaussian_full_ind_sobol
 
-N_SAMPLE_WITHOUT_BOOT = 70000
+N_SAMPLE_WITHOUT_BOOT = 80000
 N_SAMPLE_WITH_BOOT = 1000
 N_BOOT = 1000
 

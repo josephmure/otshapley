@@ -1,6 +1,9 @@
-# Compiled files
-*.pyd
+# Python Compiled files
 *.pyc
+
+# Cython compiled files
+*.c
+*.pyd
 
 # Visual Studio project files
 *.pyproj
@@ -18,3 +21,5 @@
 # Coverage file
 .coverage
 /build
+*.c
+*.c
