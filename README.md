@@ -4,13 +4,7 @@
 
 
 ## TODO list
-- Implement all the indices
-	- Total order Sobol
-	- Second order indices
-	- Ind sobol indices
-- Try to estimate the sobol indices from Mara & Tarantola, using a classical pick and freeze estimator.
 - Cythonize some parts?
-- Unique compute_indices_function in Indices class that works for kriging too.
 - Create few unitest functions
 	- On additive Gaussian model with correlation
 
