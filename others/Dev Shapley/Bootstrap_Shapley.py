@@ -146,7 +146,7 @@ def design_output(method, m, model, Xall, Xcond, d, Nv, No, Ni = 3):
 
 # In[6]:
 
-def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni=3):
+def ShapleyPerm_index1(method,bootstrap, perms, y, d, Nv, No, Ni=3):
     
     """ Function to calculate the Shapley effects and confidence interval of the values """
     
@@ -187,11 +187,18 @@ def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni=3):
         if (b == 0):
             y = y_for_boot.copy()
         else:
-            boot_idx = np.random.randint(low = 0, high = Ni, size=(m*(d-1)*No,Ni))
-            temp = np.repeat(np.arange(0,m*(d-1)*No*Ni,Ni)[:,np.newaxis], Ni, 1)
-            boot_idx = boot_idx + temp
-            boot_idx = boot_idx.reshape(m*(d-1)*No*Ni,1)
-            y = y_for_boot[boot_idx]
+            discrete_index_array = np.arange(0, m*(d-1)*No*Ni).reshape(m*(d-1)*No,Ni)
+            random_boot_1 = np.random.randint(low = 0, high = No, size=(m*(d-1),No))
+            discrete_No =  np.repeat(np.arange(0,m*(d-1)*No,No)[:,np.newaxis], No, 1)
+            boot_1_index_to_select = (random_boot_1 + discrete_No).ravel()
+            boot_1 = discrete_index_array[boot_1_index_to_select].ravel()
+            y = y_for_boot[boot_1]
+            
+            random_boot_2 = np.random.randint(low = 0, high = Ni, size=(m*(d-1)*No,Ni))
+            discrete_Ni = np.repeat(np.arange(0,m*(d-1)*No*Ni,Ni)[:,np.newaxis], Ni, 1)
+            boot_2 = (random_boot_2 + discrete_Ni).ravel()
+            y = y[boot_2]
+            #y = y_for_boot[boot_2]
              
         for p in range(m):
     
@@ -235,23 +242,139 @@ def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni=3):
     percentiles = [0.025,0.975]
     
     Sh_effects = pd.DataFrame(Sh, columns = col)
-    Sh_describe = Sh_effects.describe(percentiles=[0.025,0.975])
-
-    Vsob_effects = pd.DataFrame(Vsob, columns = col)
-    Vsob_describe = Vsob_effects.describe(percentiles=[0.025,0.975])
+    Sh_describe = Sh_effects.iloc[1:,:].describe(percentiles=[0.025,0.975])
     
-    Tsob_effects = pd.DataFrame(Tsob, columns = col)
-    Tsob_describe = Tsob_effects.describe(percentiles=[0.025,0.975])
+    Sh_ref = (Sh_effects.iloc[0].values)[:,np.newaxis]
+    CI_min = 2*Sh_ref - (Sh_describe.iloc[6].values)[:,np.newaxis]
+    CI_max = 2*Sh_ref - (Sh_describe.iloc[4].values)[:,np.newaxis]
+
+    Sh_out = np.concatenate((Sh_ref,CI_min,CI_max),axis=1)
+
+#     Vsob_effects = pd.DataFrame(Vsob, columns = col)
+#     Vsob_describe = Vsob_effects.describe(percentiles=[0.025,0.975])
+    
+#     Tsob_effects = pd.DataFrame(Tsob, columns = col)
+#     Tsob_describe = Tsob_effects.describe(percentiles=[0.025,0.975])
     
 
-    return Sh_describe, Vsob_describe, Tsob_describe
+#     return Sh_describe, Vsob_describe, Tsob_describe
+    return Sh_out
+
+
+# In[7]:
+
+def ShapleyPerm_index2(method,bootstrap, perms, y, d, Nv, No, Ni=3):
+    
+    """ Function to calculate the Shapley effects and confidence interval of the values """
+    
+    if (method == 'exact'):
+        m = perms.getSize()
+    else:
+        m = np.int(perms.shape[0])
+    
+    #-----------------------------------------------------------------
+    # Initialize Shapley, main and total Sobol effects for all players
+    #-----------------------------------------------------------------
+    
+    Sh = np.zeros((bootstrap,d))
+    Vsob = np.zeros((bootstrap,d))
+    Tsob = np.zeros((bootstrap,d))
+    
+    nV = np.zeros((bootstrap,d)) # number of samples used to estimate V1,...,Vd
+    nT = np.zeros((bootstrap,d)) # number of samples used to estimate T1,...,Td
+    
+    #----------------
+    # Estimate Var[Y]
+    #----------------
+    
+    Y = y[:Nv]
+    EY = np.mean(Y)
+    VarY = np.var(Y, ddof = 1)
+
+    y_for_boot = y[Nv:]
+    
+    #-----------------------------------------------
+    # Estimate Shapley, main and total Sobol effects
+    #-----------------------------------------------
+    
+    cVar = np.zeros(No)
+
+    for b in range(bootstrap):
+        
+        if (b == 0):
+            y = y_for_boot.copy()
+        else:
+            random_boot_2 = np.random.randint(low = 0, high = Ni, size=(m*(d-1)*No,Ni))
+            discrete_Ni = np.repeat(np.arange(0,m*(d-1)*No*Ni,Ni)[:,np.newaxis], Ni, 1)
+            boot_2 = (random_boot_2 + discrete_Ni).ravel()
+            y = y_for_boot[boot_2]
+             
+        for p in range(m):
+    
+            pi = perms[p]
+            prevC = 0
+    
+            for j in range(d):
+                if (j == (d-1)):
+                    Chat = VarY
+                    delta = Chat - prevC
+                    Vsob[b,pi[j]] = Vsob[b,pi[j]] + prevC # first order effect
+                    nV[b,pi[j]] = nV[b,pi[j]] + 1
+                else:
+                    for l in range(No):
+                        Y = y[:Ni]
+                        y = y[Ni:]
+                        cVar[l] = np.var(Y, ddof = 1)
+                    Chat = np.mean(cVar)
+                    delta = Chat - prevC
+      
+                Sh[b,pi[j]] = Sh[b,pi[j]] + delta
+        
+                prevC = Chat
+        
+                if (j == 0):
+                    Tsob[b,pi[j]] = Tsob[b,pi[j]] + Chat # Total effect
+                    nT[b,pi[j]] = nT[b,pi[j]] + 1
+    
+    Sh = Sh / m / VarY
+    
+    if (method == 'exact'):
+        Vsob = Vsob / (m/d) / VarY # averaging by number of permutations with j=d-1
+        Vsob = 1 - Vsob 
+        Tsob = Tsob / (m/d) / VarY # averaging by number of permutations with j=1 
+    else:
+        Vsob = Vsob / nV / VarY # averaging by number of permutations with j=d-1
+        Vsob = 1 - Vsob 
+        Tsob = Tsob / nT / VarY # averaging by number of permutations with j=1 
+    
+    col = ['X' + str(i) for i in np.arange(d)+1]
+    percentiles = [0.025,0.975]
+    
+    Sh_effects = pd.DataFrame(Sh, columns = col)
+    Sh_describe = Sh_effects.iloc[1:,:].describe(percentiles=[0.025,0.975])
+    
+    Sh_ref = (Sh_effects.iloc[0].values)[:,np.newaxis]
+    CI_min = 2*Sh_ref - (Sh_describe.iloc[6].values)[:,np.newaxis]
+    CI_max = 2*Sh_ref - (Sh_describe.iloc[4].values)[:,np.newaxis]
+
+    Sh_out = np.concatenate((Sh_ref,CI_min,CI_max),axis=1)
+
+#     Vsob_effects = pd.DataFrame(Vsob, columns = col)
+#     Vsob_describe = Vsob_effects.describe(percentiles=[0.025,0.975])
+    
+#     Tsob_effects = pd.DataFrame(Tsob, columns = col)
+#     Tsob_describe = Tsob_effects.describe(percentiles=[0.025,0.975])
+    
+
+#     return Sh_describe, Vsob_describe, Tsob_describe
+    return Sh_out
 
 
 # ## Evaluation Shapley effects on linear gaussian model
 
 # #### Parameters of the model
 
-# In[ ]:
+# In[8]:
 
 d = 3
 coeff_model = np.array([1,1,1])
@@ -267,7 +390,7 @@ def gaussian_model(X):
 
 # #### Function to estimate Shapley effects
 
-# In[ ]:
+# In[9]:
 
 def Xall(n):
     distribution = ot.Normal(moyenne,cov)
@@ -287,43 +410,146 @@ def Xcond(n, Sj, Sjc, xjc):
 
 # #### Calculate true values of the Shapley effects
 
-# In[ ]:
+# In[10]:
 
 True_Sh = Sh_effects_gaussian_linear_model(coeff_model, cov, corr)
 
 
 # #### Estimate Shapley effects with Exact method of permutations
 
+# ##### Test de différents configurations sur le bootstrap
+
+# ###### Config 1
+
 # In[ ]:
 
+col = ['Sh','ICmin','ICmax']
+writer = pd.ExcelWriter('index.xlsx', engine='xlsxwriter')
+
+
+# In[11]:
+
 method = 'exact'
-bootstrap = 10
 m = None
 Nv = 10**4
 No = 10**3
-Ni = 10
+Ni = 3
 
 perms, y = design_output(method, m, gaussian_model, Xall, Xcond, d, Nv, No, Ni)
 
-Sh, Vsob, Tsob = ShapleyPerm(method, bootstrap, perms, y, d, Nv, No, Ni)
+bootstrap = 10**3
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
 
-print('Exact method \n\n')
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index1')
 
-print('Shapley effects \n' + str(Sh) + '\n\n')
-print('First order Sobol \n' + str(Vsob) + '\n\n')
-print('Total Sobol \n' + str(Tsob) + '\n\n')
 
-# Create a Pandas Excel writer using XlsxWriter as the engine.
-writer = pd.ExcelWriter('index.xlsx', engine='xlsxwriter')
+# In[ ]:
 
-# Convert the dataframe to an XlsxWriter Excel object.
-Sh.to_excel(writer, sheet_name='Shapley')
-Vsob.to_excel(writer, sheet_name='First_sobol')
-Tsob.to_excel(writer, sheet_name='Total_sobol')
+print('1/8')
+
+
+# In[ ]:
+
+bootstrap = 10**4
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index1')
+
+
+# In[ ]:
+
+print('2/8')
+
+
+# In[14]:
+
+bootstrap = 10**3
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_3_index2')
+
+
+# In[ ]:
+
+print('3/8')
+
+
+# In[ ]:
+
+bootstrap = 10**4
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_3_boot_4_index2')
+
+
+# In[ ]:
+
+print('4/8')
+
+
+# ###### Config 2
+
+# In[ ]:
+
+method = 'exact'
+m = None
+Nv = 10**4
+No = 10**3
+Ni = 10**2
+
+perms, y = design_output(method, m, gaussian_model, Xall, Xcond, d, Nv, No, Ni)
+
+bootstrap = 10**3
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index1')
+
+
+# In[ ]:
+
+print('5/8')
+
+
+# In[ ]:
+
+bootstrap = 10**4
+Sh = ShapleyPerm_index1(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index1')
+
+
+# In[ ]:
+
+print('6/8')
+
+
+# In[ ]:
+
+bootstrap = 10**3
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_3_index2')
+
+
+# In[ ]:
+
+print('7/8')
+
+
+# In[ ]:
+
+bootstrap = 10**4
+Sh = ShapleyPerm_index2(method, bootstrap, perms, y, d, Nv, No, Ni)
+
+pd.DataFrame(Sh, columns=col).to_excel(writer,sheet_name='Ni_100_boot_4_index2')
+
+
+# In[ ]:
+
+print('8/8')
+
+
+# In[ ]:
 
 # Close the Pandas Excel writer and output the Excel file.
 writer.save()
-
-
-
-
