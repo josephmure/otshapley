@@ -2,9 +2,7 @@ import openturns as ot
 import numpy as np
 import pandas as pd
 
-
 VALUE_NAME = 'Indice values'
-
 
 class Base(object):
     """Base class.
