@@ -45,7 +45,7 @@ class ShapleyIndices(Indices):
         # Add shapley function
         self.indice_func = shapley_indices
 
-    def build_mc_sample(self, model, n_perms, Nv=10**4, No=10**3, Ni=3, estimation_method='exact'):
+    def build_mc_sample(self, model, n_perms, Nv=1000, No=1000, Ni=3, estimation_method='exact'):
         """
         """
         dim = self.dim
@@ -71,30 +71,35 @@ class ShapleyIndices(Indices):
                 return r_condMVN(n, mean=mean, cov=cov, dependent_ind=Sj, given_ind=Sjc, X_given=xjc)
 
         # Creation of the design matrix
-        X = np.zeros((Nv + n_perms*(dim-1)*No*Ni, dim))
-        X[:Nv, :] = self.input_distribution.getSample(Nv)
+        input_sample_1 = np.asarray(self.input_distribution.getSample(Nv))
 
+        input_sample_2 = np.zeros((n_perms*(dim-1)*No*Ni, dim))
         for i_p, perm in enumerate(perms):
-            idx_perm_sorted = np.argsort(perm)
+            idx_perm_sorted = np.argsort(perm)  # Sort the variable ids
             for j in range(dim-1):
-                Sj = perm[:j+1] # set of the 0st-(j-1)th elements in perm
-                Sjc = perm[j+1:] # set of the jth-dth elements in perm
-                xjcM = Xcond(No, Sjc, None, None) # sampled values of the inputs in Sjc
-                for l, xjc in enumerate(xjcM):
-                    # sample values of inputs in Sj conditional on xjc
-                    xj = Xcond(Ni, Sj, Sjc, xjc)
+                # Normal set
+                idx_j = perm[:j+1]
+                # Complementary set
+                idx_j_c = perm[j+1:]
+                # Sampling of the complementary set
+                sample_j_c = Xcond(No, idx_j_c, None, None)
+                for l, xjc in enumerate(sample_j_c):
+                    # Sampling of the set conditionally to the complementary element
+                    xj = Xcond(Ni, idx_j, idx_j_c, xjc)
                     xx = np.c_[xj, [xjc]*Ni]
-                    ind_inner = Nv + i_p*(dim-1)*No*Ni + j*No*Ni + l*Ni
-                    X[ind_inner:ind_inner+Ni, :] = xx[:, idx_perm_sorted]
+                    ind_inner = i_p*(dim-1)*No*Ni + j*No*Ni + l*Ni
+                    input_sample_2[ind_inner:ind_inner+Ni] = xx[:, idx_perm_sorted]
 
-        self.output_sample = model(X)
+
+        self.output_sample_1 = model(input_sample_1)
+        self.output_sample_2 = model(input_sample_2)
         self.Nv = Nv
         self.No = No
         self.Ni = Ni
         self.perms = perms
         self.estimation_method = estimation_method
 
-    def compute_indices(self):
+    def compute_indices(self, n_boot):
         """
         """
         dim = self.dim
@@ -113,10 +118,10 @@ class ShapleyIndices(Indices):
         nT = np.zeros(dim) # number of samples used to estimate T1,...,Td
     
         # Estimate Var[Y]
-        Y = self.output_sample[:Nv]
-        y = self.output_sample[Nv:]
-        EY = np.mean(Y)
-        VarY = np.var(Y, ddof=1)
+        output_sample_1 = self.output_sample_1
+        output_sample_2 = self.output_sample_2
+        y = output_sample_2
+        output_var = np.var(output_sample_1, ddof=1)
 
         # Estimate Shapley, main and total Sobol effects
         cVar = np.zeros(No)
@@ -125,7 +130,7 @@ class ShapleyIndices(Indices):
             prevC = 0
             for j in range(dim):
                 if (j == (dim-1)):
-                    Chat = VarY
+                    Chat = output_var
                     delta = Chat - prevC
                     Vsob[perm[j]] = Vsob[perm[j]] + prevC # first order effect
                     nV[perm[j]] = nV[perm[j]] + 1
@@ -142,15 +147,15 @@ class ShapleyIndices(Indices):
                     Tsob[perm[j]] = Tsob[perm[j]] + Chat # Total effect
                     nT[perm[j]] = nT[perm[j]] + 1
     
-        Sh = Sh / n_perms / VarY
+        Sh = Sh / n_perms / output_var
         if estimation_method == 'exact':
-            Vsob = Vsob / (n_perms/dim) / VarY # averaging by number of permutations with j=d-1
+            Vsob = Vsob / (n_perms/dim) / output_var # averaging by number of permutations with j=d-1
             Vsob = 1 - Vsob 
-            Tsob = Tsob / (n_perms/dim) / VarY # averaging by number of permutations with j=1 
+            Tsob = Tsob / (n_perms/dim) / output_var # averaging by number of permutations with j=1 
         elif estimation_method == 'random':
-            Vsob = Vsob / nV / VarY # averaging by number of permutations with j=d-1
+            Vsob = Vsob / nV / output_var # averaging by number of permutations with j=d-1
             Vsob = 1 - Vsob 
-            Tsob = Tsob / nT / VarY # averaging by number of permutations with j=1
+            Tsob = Tsob / nT / output_var # averaging by number of permutations with j=1
     
         col = ['S%d' % (i+1) for i in range(dim)]
         effects = pd.DataFrame(np.array([Sh,Vsob,Tsob]), index = ['Shapley effects', 'First order Sobol', 'Total Sobol'], columns = col)
