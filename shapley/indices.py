@@ -116,10 +116,11 @@ class Indices(Base):
             assert X_1_i.shape[1] == dim, "Wrong dimension"
             
             # 4) Model evaluations
+            X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]
             if n_realization == 1:
-                output_sample_i = model(np.r_[X_1_i, X_2_i, X_3_i, X_4_i])
+                output_sample_i = model(X)
             else:
-                output_sample_i = model(np.r_[X_1_i, X_2_i, X_3_i, X_4_i], n_realization)
+                output_sample_i = model(X, n_realization)
 
             all_output_sample_1[i] = output_sample_i[:n_sample]
             all_output_sample_2[i] = output_sample_i[n_sample:2*n_sample]
