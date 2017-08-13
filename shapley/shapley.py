@@ -109,6 +109,7 @@ class ShapleyIndices(Indices):
 
         self.output_sample_1 = output_sample[:Nv]
         self.output_sample_2 = output_sample[Nv:]
+        self.output_sample_3 = self.output_sample_2.reshape((n_perms, dim - 1, No, Ni, n_realization))
         self.perms = perms
         self.estimation_method = estimation_method
         self.Nv = Nv
@@ -136,35 +137,27 @@ class ShapleyIndices(Indices):
         nT = np.zeros((dim, n_realization)) # number of samples used to estimate T1,...,Td
     
         # Estimate Var[Y]
-        var_y = np.var(self.output_sample_1, axis=0, ddof=1)
-
+        var_y = self.output_sample_1.var(axis=0, ddof=1)
+        c_var = self.output_sample_3.var(axis=3, ddof=1)
         # Estimate Shapley, main and total Sobol effects
-        for i_nz in range(n_realization):
-            if n_realization == 1:
-                y = self.output_sample_2
-            else:
-                y = self.output_sample_2[:, i_nz]
-            cVar = np.zeros((No, ))
-            for perm in perms:
-                prevC = 0
-                for j in range(dim):
-                    if j == dim - 1:
-                        Chat = var_y[i_nz] if n_realization > 1 else var_y
-                        delta = Chat - prevC
-                        Vsob[perm[j], i_nz] = Vsob[perm[j], i_nz] + prevC # first order effect
-                        nV[perm[j], i_nz] = nV[perm[j], i_nz] + 1
-                    else:
-                        for l in range(No):
-                            y_l = y[:Ni]
-                            cVar[l] = np.var(y_l, ddof=1)
-                            y = y[Ni:]
-                        Chat = np.mean(cVar)
-                        delta = Chat - prevC
-                    Sh[perm[j], i_nz] = Sh[perm[j], i_nz] + delta
-                    prevC = Chat
-                    if j == 0:
-                        Tsob[perm[j], i_nz] = Tsob[perm[j], i_nz] + Chat # Total effect
-                        nT[perm[j], i_nz] = nT[perm[j], i_nz] + 1
+        for i_p, perm in enumerate(perms):
+            prev_c = np.zeros((n_realization, ))
+            for j in range(dim):
+                if j < dim-1:
+                    c_hat = c_var[i_p, j].mean(axis=0)
+                    delta = c_hat - prev_c
+                else:
+                    c_hat = var_y
+                    delta = c_hat - prev_c
+                    Vsob[perm[j]] += prev_c # first order effect
+                    nV[perm[j]] += 1
+
+                Sh[perm[j]] += delta
+                prev_c = c_hat
+                if j == 0:
+                    Tsob[perm[j]] += c_hat # Total effect
+                    nT[perm[j]] += 1
+
     
         Sh = Sh / n_perms / var_y
         if (estimation_method == 'exact'):
@@ -176,10 +169,12 @@ class ShapleyIndices(Indices):
             Vsob = 1 - Vsob 
             Tsob = Tsob / nT / var_y # averaging by number of permutations with j=1
     
-        col = ['S%d' % (i + 1) for i in range(dim)]
-        #effects = pd.DataFrame(np.array([Sh,Vsob,Tsob]), index = ['Shapley effects', 'First order Sobol', 'Total Sobol'], columns = col)
-
-        return Sh, Vsob, Tsob
+        if False:
+            col = ['S%d' % (i + 1) for i in range(dim)]
+            effects = pd.DataFrame(np.asarray([Sh,Vsob,Tsob]), index=['Shapley effects', 'First order Sobol', 'Total Sobol'], columns=col)
+            return effects
+        else:
+            return Sh, Vsob, Tsob
 
 
 class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):

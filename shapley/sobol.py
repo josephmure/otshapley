@@ -136,13 +136,16 @@ def sobol_indices(Y1, Y2, Y2t, boot_idx=None, estimator='sobol2002'):
 
     Parameters
     ----------
-    Y : array,
+    Y1 : array,
         The 
 
     Returns
     -------
-    indice : int or array,
+    first_indice : int or array,
         The first order sobol indice estimation.
+
+    total_indice : int or array,
+        The total sobol indice estimation.
     """
     n_sample = Y1.shape[0]
     assert n_sample == Y2.shape[0], "Matrices should have the same sizes"
@@ -237,10 +240,29 @@ def soboleff2_estimator(Y1, Y2, Y2t):
 
     return first_indice, total_indice
 
+
+def sobolmara_estimator(Y1, Y2, Y2t):
+    """
+    """
+    n_sample = Y1.shape[1]
+    diff = Y2t - Y2
+    var = v(Y1)
+
+
+    var_indiv = m(Y1 * diff)
+    var_total = m(diff ** 2)
+
+    first_indice = var_indiv / var
+    total_indice = var_total / var / 2.
+
+    return first_indice, total_indice
+
+
 _ESTIMATORS = {
     'sobol': sobol_estimator,
     'sobol2002': sobol2002_estimator,
     'sobol2007': sobol2007_estimator,
     'soboleff1': soboleff1_estimator,
-    'soboleff2': soboleff2_estimator
+    'soboleff2': soboleff2_estimator,
+    'sobolmara': sobolmara_estimator,
     }
