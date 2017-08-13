@@ -129,10 +129,10 @@ class ShapleyIndices(Indices):
         n_perms = len(perms)
 
         # Initialize Shapley, main and total Sobol effects for all players
-        shapley_indices = np.zeros((dim, n_realization))
-        first_indices = np.zeros((dim, n_realization))
-        total_indices = np.zeros((dim, n_realization))
-        n_sob = np.zeros((dim, n_realization))
+        shapley_indices = np.zeros((dim, n_boot , n_realization))
+        first_indices = np.zeros((dim, n_boot, n_realization))
+        total_indices = np.zeros((dim, n_boot, n_realization))
+        n_sob = np.zeros((dim, n_boot, n_realization))
     
         if n_boot > 1:
             boot_var_idx = np.random.randint(0, Nv, size=(Nv, n_boot))
@@ -149,9 +149,10 @@ class ShapleyIndices(Indices):
         c_mean_var = c_var.mean(axis=2)
 
         # Cost estimations
-        c_hat = np.concatenate((c_mean_var, [var_y.reshape(1, -1)]*n_perms), axis=1)
+        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
+        for i_b in range(n_boot):
+            c_hat[:, :, i_b] = np.concatenate((c_mean_var, [var_y[i_b].reshape(1, -1)]*n_perms), axis=1)
 
-        print(var_y.shape, c_hat.shape)
         # Cost variation
         delta_c = c_hat.copy()
         delta_c[:, 1:] = c_hat[:, 1:] - c_hat[:, :-1]
