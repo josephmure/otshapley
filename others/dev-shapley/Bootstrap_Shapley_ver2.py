@@ -144,7 +144,7 @@ def compute_output(method, m, model, Xall, Xcond, d, Nv, No, Ni = 3):
 
 # #### Caculate the Shapley effetcs and make bootstrap
 
-# In[6]:
+# In[20]:
 
 def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni = 3):
     
@@ -230,15 +230,19 @@ def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni = 3):
                     nT[b,pi[j]] = nT[b,pi[j]] + 1
         
         Sh[b,:] = Sh[b,:] / m / VarY
-    
+        
+        print('b  = '+str(b)+'\n')
+        
+        print('nV = '+str(nV)+'\n')
+        
         if (method == 'exact'):
             Vsob[b,:] = Vsob[b,:] / (m/d) / VarY # averaging by number of permutations with j=d-1
             Vsob[b,:] = 1 - Vsob[b,:] 
             Tsob[b,:] = Tsob[b,:] / (m/d) / VarY # averaging by number of permutations with j=1 
         else:
-            Vsob[b,:] = Vsob[b,:] / nV / VarY # averaging by number of permutations with j=d-1
+            Vsob[b,:] = Vsob[b,:] / nV[b,:] / VarY # averaging by number of permutations with j=d-1
             Vsob[b,:] = 1 - Vsob[b,:] 
-            Tsob[b,:] = Tsob[b,:] / nT / VarY # averaging by number of permutations with j=1 
+            Tsob[b,:] = Tsob[b,:] / nT[b,:] / VarY # averaging by number of permutations with j=1 
     
     rownames = ['X' + str(i) for i in np.arange(d)+1]
     percentiles = [0.025,0.975]
@@ -347,7 +351,7 @@ writer.save()
 
 # #### Estimate Shapley effects with random permutations
 
-# In[10]:
+# In[21]:
 
 method = 'random'
 m = 6000
