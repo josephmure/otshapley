@@ -1,0 +1,8 @@
+Bootstrap_Shapley_ver2.py:239: RuntimeWarning: divide by zero encountered in true_divide
+  Vsob[b,:] = Vsob[b,:] / nV / VarY # averaging by number of permutations with j=d-1
+Traceback (most recent call last):
+  File "Bootstrap_Shapley_ver2.py", line 361, in <module>
+    Sh, Vsob, Tsob = ShapleyPerm(method, bootstrap, perms, y, d, Nv, No, Ni)
+  File "Bootstrap_Shapley_ver2.py", line 239, in ShapleyPerm
+    Vsob[b,:] = Vsob[b,:] / nV / VarY # averaging by number of permutations with j=d-1
+ValueError: could not broadcast input array from shape (1000,3) into shape (3)
