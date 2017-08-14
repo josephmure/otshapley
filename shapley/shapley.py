@@ -5,6 +5,7 @@ import pandas as pd
 
 from .indices import Indices
 from .kriging import KrigingIndices
+from .base import SensitivityResults
 
 def condMVN(mean, cov, dependent_ind, given_ind, X_given):
     """ Returns conditional mean and variance of X[dependent.ind] | X[given.ind] = X.given
@@ -58,7 +59,7 @@ class ShapleyIndices(Indices):
     def __init__(self, input_distribution):
         Indices.__init__(self, input_distribution)
         # Add shapley function
-        self.indice_func = shapley_indices
+        self.indice_func = None
 
     def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=1):
         """
@@ -116,7 +117,7 @@ class ShapleyIndices(Indices):
         self.Ni = Ni
         self.n_realization = n_realization
 
-    def compute_indices(self, n_boot):
+    def compute_indices(self, n_boot_var, n_boot_Ni, n_boot_No):
         """
         """
         dim = self.dim
@@ -127,31 +128,44 @@ class ShapleyIndices(Indices):
         perms = self.perms
         estimation_method = self.estimation_method
         n_perms = len(perms)
+        n_boot = n_boot_var*n_boot_Ni*n_boot_No
 
         # Initialize Shapley, main and total Sobol effects for all players
-        shapley_indices = np.zeros((dim, n_boot , n_realization))
-        first_indices = np.zeros((dim, n_boot, n_realization))
-        total_indices = np.zeros((dim, n_boot, n_realization))
-        n_sob = np.zeros((dim, n_boot, n_realization))
-    
+        shapley_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+        first_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+        total_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+        n_sob = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+
         if n_boot > 1:
-            boot_var_idx = np.random.randint(0, Nv, size=(Nv, n_boot))
+            boot_var_idx = np.random.randint(0, Nv, size=(Nv, n_boot_var))
+            boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, n_boot_Ni))
+            boot_No_idx = np.random.randint(0, No, size=(No, n_boot_No))
         else:
             boot_var_idx = range(0, Nv)
+            boot_Ni_idx = range(0, Ni)
+            boot_No_idx = range(0, No)
 
         # Output variance
         var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
-
-        # Conditional variances
-        c_var = self.output_sample_2.var(axis=3, ddof=1)
         
+        # Conditional variances
+        output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
+        print('1: output_sample_2:', output_sample_2.shape)
+        output_sample_2 = output_sample_2[:, :, boot_No_idx].swapaxes(3, 4)
+        print('2: output_sample_2:', output_sample_2.shape)
+        c_var = output_sample_2.var(axis=3, ddof=1)
+        print('c_var:', c_var.shape)
+
         # Conditional exceptations
         c_mean_var = c_var.mean(axis=2)
+        print('c_mean_var:', c_mean_var.shape)
 
         # Cost estimations
-        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
-        for i_b in range(n_boot):
-            c_hat[:, :, i_b] = np.concatenate((c_mean_var, [var_y[i_b].reshape(1, -1)]*n_perms), axis=1)
+        c_hat = np.zeros((n_perms, dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+        for i_b in range(n_boot_var):
+            for i_1 in range(n_boot_No):
+                for i_2 in range(n_boot_Ni):
+                    c_hat[:, :, i_b, i_1, i_2] = np.concatenate((c_mean_var[:, :, i_1, i_2], [var_y[i_b].reshape(1, -1)]*n_perms), axis=1)
 
         # Cost variation
         delta_c = c_hat.copy()
@@ -166,11 +180,17 @@ class ShapleyIndices(Indices):
 
         N = n_perms / dim if estimation_method == 'exact' else n_sob
 
-        shapley_indices = shapley_indices / n_perms / var_y
-        total_indices = total_indices / N / var_y # averaging by number of permutations with j=1
-        first_indices = 1. - first_indices / N / var_y # averaging by number of permutations with j=d-1
+        shapley_indices = shapley_indices / n_perms / var_y.reshape(1, -1, 1, 1, 1)
+        total_indices = total_indices / N /  var_y.reshape(1, -1, 1, 1, 1)
+        first_indices = 1. - first_indices / N /  var_y.reshape(1, -1, 1, 1, 1)
+        
+        shapley_indices = shapley_indices.reshape(dim, -1)
+        total_indices = total_indices.reshape(dim, -1)
+        first_indices = first_indices.reshape(dim, -1)
     
-        return shapley_indices, first_indices, total_indices
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, 
+                                     shapley_indices=shapley_indices, calculation_method='shapley')
+        return results
 
 
 class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
@@ -179,110 +199,3 @@ class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
     def __init__(self, input_distribution):
         KrigingIndices.__init__(self, input_distribution)
         ShapleyIndices.__init__(self, input_distribution)
-
-
-def shapley_indices(method, n_perms, model, input_distribution, dim, Nv, No, Ni=3):
-    """Permutation Shapley indices.
-    
-    Parameters
-    ----------
-    method : str,
-        The kind of permutations.
-    m : int,
-        The number of permutations (if random).
-    model : callable,
-        The model function.
-    Xall : array,
-    """
-    if (method == 'exact'):
-        perms = list(ot.KPermutations(dim, dim).generate())
-        n_perms = len(perms) # number of permutation
-    elif (method == 'random'):
-        perms = [np.random.permutation(dim) for i in range(n_perms)]
-    else:
-        raise ValueError('Unknow permutation method {0}'.format(method))
-
-    def Xcond(n, Sj, Sjc, xjc):
-        cov = np.asarray(input_distribution.getCovariance())
-        mean = np.asarray(input_distribution.getMean())
-        if Sjc is None:
-            cov_int = cov.take(Sj, axis = 1)
-            cov_int = cov_int[Sj, :]
-            cov_int = ot.CovarianceMatrix(cov_int)
-            distribution = ot.Normal(mean[Sj], cov_int)
-            return np.asarray(distribution.getSample(n))
-        else:
-            return r_condMVN(n, mean=mean, cov=cov, dependent_ind=Sj, given_ind=Sjc, X_given=xjc)
-    
-    # Creation of the design matrix
-    input_sample_1 = np.asarray(input_distribution.getSample(Nv))
-
-    input_sample_2 = np.zeros((n_perms * (dim - 1) * No * Ni, dim))
-    for i_p, perm in enumerate(perms):
-        idx_perm_sorted = np.argsort(perm)  # Sort the variable ids
-        for j in range(dim - 1):
-            # Normal set
-            idx_j = perm[:j + 1]
-            # Complementary set
-            idx_j_c = perm[j + 1:]
-            # Sampling of the complementary set
-            sample_j_c = Xcond(No, idx_j_c, None, None)
-            for l, xjc in enumerate(sample_j_c):
-                # Sampling of the set conditionally to the complementary
-                # element
-                xj = Xcond(Ni, idx_j, idx_j_c, xjc)
-                xx = np.c_[xj, [xjc] * Ni]
-                ind_inner = i_p * (dim - 1) * No * Ni + j * No * Ni + l * Ni
-                input_sample_2[ind_inner:ind_inner + Ni, :] = xx[:, idx_perm_sorted]
-
-    # Model evaluation
-    output_sample_1 = model(input_sample_1)
-    output_sample_2 = model(input_sample_2)
-
-    # Initialize Shapley, main and total Sobol effects for all players
-    Sh = np.zeros(dim)
-    Vsob = np.zeros(dim)
-    Tsob = np.zeros(dim)
-    nV = np.zeros(dim) # number of samples used to estimate V1,...,Vd
-    nT = np.zeros(dim) # number of samples used to estimate T1,...,Td
-    
-    # Estimate Var[Y]
-    var_y = np.var(output_sample_1, ddof=1)
-    y = output_sample_2
-
-    # Estimate Shapley, main and total Sobol effects
-    cVar = np.zeros(No)
-    for perm in perms:
-        prevC = 0
-        for j in range(dim):
-            if j == (dim - 1):
-                Chat = var_y
-                Vsob[perm[j]] += prevC # first order effect
-                nV[perm[j]] += 1
-            else:
-                for l in range(No):
-                    Y = y[:Ni]
-                    y = y[Ni:]
-                    cVar[l] = np.var(Y, ddof=1)
-                Chat = np.mean(cVar)
-            delta = Chat - prevC
-            Sh[perm[j]] += delta
-            prevC = Chat
-            if (j == 0):
-                Tsob[perm[j]] += Chat # Total effect
-                nT[perm[j]] += 1
-    
-    Sh = Sh / n_perms / var_y
-    if (method == 'exact'):
-        Vsob = Vsob / (n_perms / dim) / var_y # averaging by number of permutations with j=d-1
-        Vsob = 1 - Vsob 
-        Tsob = Tsob / (n_perms / dim) / var_y # averaging by number of permutations with j=1
-    else:
-        Vsob = Vsob / nV / var_y # averaging by number of permutations with j=d-1
-        Vsob = 1 - Vsob 
-        Tsob = Tsob / nT / var_y # averaging by number of permutations with j=1
-    
-    col = ['S%d' % (i + 1) for i in range(dim)]
-    effects = pd.DataFrame(np.array([Sh,Vsob,Tsob]), index = ['Shapley effects', 'First order Sobol', 'Total Sobol'], columns = col)
-
-    return effects

@@ -175,7 +175,6 @@ class Indices(Base):
         else:
             raise ValueError('Unknow type of indice {0}'.format(type))
 
-        # TODO: cythonize this
         boot_idx = None
         for i in range(dim):
             if n_boot > 1:

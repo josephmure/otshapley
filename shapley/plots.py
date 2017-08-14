@@ -20,10 +20,23 @@ def set_style_paper():
     })
 
 
-def plot_sensitivity_results(results, kind='violin', indice='both', ax=None):
+def plot_sensitivity_results(results, kind='violin', indice='all', ax=None):
+    """Plot the result of the sensitivy result class
+
+    Parameters
+    ----------
+    results : SensitivityResults instance,
+        The result from a sensitivity analysis.
+    kind : str,
+        The type of plot to show the results.
+    indice : str,
+        The indices to show
+    Return
+    ------
+    ax : matplotlib.axes
+        The ploted result.
     """
-    """
-    if indice == 'both':
+    if indice == 'all':
         df_indices = results.df_indices
         hue = 'Indices'
         split = False
@@ -33,6 +46,10 @@ def plot_sensitivity_results(results, kind='violin', indice='both', ax=None):
         split = True
     elif indice == 'total':
         df_indices = results.df_total_indices
+        hue = 'Error'
+        split = True
+    elif indice == 'shapley':
+        df_indices = results.df_shapley_indices
         hue = 'Error'
         split = True
     else:
@@ -45,11 +62,11 @@ def plot_sensitivity_results(results, kind='violin', indice='both', ax=None):
         sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
     else:
         raise ValueError('Unknow kind {0}'.format(kind))
-        
+
     if results.true_indices is not None:
-        if indice == 'both':
+        if indice == 'all':
             true_indices = results.true_indices
-            palette = {'True first': "y", 'True total': "m"}
+            palette = {'True first': "y", 'True total': "m", 'True shapley': "c"}
             sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, 
                           dodge=True, palette=palette, size=9);
         elif indice == 'first':
@@ -57,6 +74,9 @@ def plot_sensitivity_results(results, kind='violin', indice='both', ax=None):
             sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
         elif indice == 'total':
             true_indices = results.true_indices[results.true_indices['Indices'] == 'True total']
+            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
+        elif indice == 'shapley':
+            true_indices = results.true_indices[results.true_indices['Indices'] == 'True shapley']
             sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
     return ax
 

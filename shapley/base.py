@@ -58,74 +58,147 @@ def panel_data(data, columns=None):
     df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
     return df
 
+def get_shape(indices):
+    """
+    """
+    if indices.ndim == 1:
+        dim = indices.shape[0]
+        n_boot = 1
+        n_realization = 1
+    elif indices.ndim == 2:
+        dim, n_boot = indices.shape
+        n_realization = 1
+    elif indices.ndim == 3:
+        dim, n_boot, n_realization = indices.shape
+
+    return dim, n_boot, n_realization
 
 class SensitivityResults(object):
     """
     """
-    def __init__(self, first_indices=None, total_indices=None, calculation_method=None, true_indices=None):
+    def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, calculation_method=None, true_first_indices=None,
+                 true_total_indices=None, true_shapley_indices=None):
+        self.dim = None
+        self.n_boot = None
+        self.n_realization = None
         self.first_indices = first_indices
         self.total_indices = total_indices
-        self.true_indices = true_indices
+        self.shapley_indices = shapley_indices
+        self.true_first_indices = true_first_indices
+        self.true_total_indices = true_total_indices
+        self.true_shapley_indices = true_shapley_indices
         self.calculation_method = calculation_method
 
     @property
-    def calculation_method(self):
+    def true_indices(self):
+        """The true sensitivity results
         """
-        """
-        return self._calculation_method
-
-    @calculation_method.setter
-    def calculation_method(self, method):
-        """
-        """
-        self._calculation_method = method
+        df = pd.DataFrame({'True first': self.true_first_indices,
+            'True total': self.true_total_indices,
+            'True shapley': self.true_shapley_indices,
+            'Variables': ['$X_%d$' % (i+1) for i in range(self.dim)]})
+        df = df[['True first', 'True total', 'True shapley', 'Variables']]
+        indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+        
+        return indices
 
     @property
-    def true_indices(self):
+    def first_indices(self):
+        """The first sobol sensitivity estimation.
         """
-        """
-        return self._true_indices
+        return self._first_indices.reshape(self.dim, -1).mean(axis=1)
 
-    @true_indices.setter
-    def true_indices(self, indices):
-        self._true_indices = indices
+    @first_indices.setter
+    def first_indices(self, indices):
+        if indices is not None:
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._first_indices = indices
+
+    @property
+    def total_indices(self):
+        """The total Sobol sensitivity indicies estimations.
+        """
+        return self._total_indices.reshape(self.dim, -1).mean(axis=1)
+
+    @total_indices.setter
+    def total_indices(self, indices):
+        if indices is not None:
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._total_indices = indices
+
+    @property
+    def shapley_indices(self):
+        """The Shapley indicies estimations.
+        """
+        return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
+
+    @shapley_indices.setter
+    def shapley_indices(self, indices):
+        if indices is not None:
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._shapley_indices = indices
+
+    def _check_indices(self, indices):
+        """Get the shape of the indices result matrix and check if the shape is correct with history.
+        """
+        dim, n_boot, n_realization = get_shape(indices)
+        if self.dim is not None:
+            assert self.dim == dim, \
+                "Dimension should be the same as for the other indices. %d ! %d" % (self.dim, dim)
+        if self.n_boot is not None:
+            assert self.n_boot == n_boot, \
+                "Bootstrap size should be the same as for the other indices. %d ! %d" % (self.n_boot, n_boot)
+        if self.n_realization is not None:
+            assert self.n_realization == n_realization, \
+                "Number of realizations should be the same as for the other indices. %d ! %d" % (self.n_realization, n_realization)
+        return dim, n_boot, n_realization
 
     @property
     def df_indices(self):
+        """The datafram of the sensitivity results
         """
-        """
-        dim = self.ndim
+        dim = self.dim
         n_boot = self.n_boot
+        n_realization = self.n_realization
+        feat_indices = 'Indices'
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
 
-        if self._calculation_method == 'monte-carlo':
-            df_first = pd.DataFrame(self._first_indices.T, columns=columns)
-            df_total = pd.DataFrame(self._total_indices.T, columns=columns)
-            df_first['Indices'] = 'First'
-            df_total['Indices'] = 'Total'
+        if self.n_realization == 1:
+            df_first = pd.DataFrame(self._first_indices.squeeze().T, columns=columns)
+            df_total = pd.DataFrame(self._total_indices.squeeze().T, columns=columns)
+            df_first[feat_indices] = 'First'
+            df_total[feat_indices] = 'Total'
+            all_df = [df_first, df_total]
+            if self._shapley_indices is not None:
+                df_shapley = pd.DataFrame(self._shapley_indices.squeeze().T, columns=columns)
+                df_shapley[feat_indices] = 'Shapley'
+                all_df.append(df_shapley)
+            df = pd.concat(all_df)
+            df = pd.melt(df, id_vars=[feat_indices], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
 
-            df = pd.concat([df_first, df_total])
-            df = pd.melt(df, id_vars=['Indices'], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
-
-            return df
-        elif self._calculation_method == 'kriging-mc':
+        else:
             df_first = panel_data(self._first_indices, columns=columns)
             df_total = panel_data(self._total_indices, columns=columns)
             df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
             df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
-            df_first_melt['Indices'] = 'First'
-            df_total_melt['Indices'] = 'Total'
+            df_first_melt[feat_indices] = 'First'
+            df_total_melt[feat_indices] = 'Total'
+            all_df = [df_first_melt, df_total_melt]
+            if self._shapley_indices is not None:
+                df_shapley = panel_data(self.shapley_indices, columns=columns)
+                df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
+                df_shapley_melt[feat_indices] = 'Shapley'
+                all_df.append(df_shapley_melt)
 
-            df = pd.concat([df_first_melt, df_total_melt])
-            return df
-        else:
-            raise('You should first specify the calculation method.')
+            df = pd.concat(all_df)
+
+        return df
     
     @property
     def full_df_indices(self):
         """
         """
-        dim = self.ndim
+        dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
         if self._calculation_method == 'monte-carlo':
             pass
@@ -137,27 +210,6 @@ class SensitivityResults(object):
 
             df = pd.concat([df_first, df_total])
             return df
-
-    @property
-    def first_indices(self):
-        """
-        """
-        return self._first_indices.reshape(self.ndim, -1).mean(axis=1)
-
-    @first_indices.setter
-    def first_indices(self, indices):
-        if indices is not None:
-            if indices.ndim == 1:
-                self.ndim = indices.shape[0]
-                self.n_boot = 1
-                self.n_realization = 1
-            elif indices.ndim == 2:
-                self.ndim, self.n_boot = indices.shape
-                self.n_realization = 1
-            elif indices.ndim == 3:
-                self.ndim, self.n_realization, self.n_boot = indices.shape
-
-        self._first_indices = indices
 
     @property
     def full_first_indices(self):
@@ -175,20 +227,10 @@ class SensitivityResults(object):
         return self._total_indices
 
     @property
-    def total_indices(self):
-        """
-        """
-        return self._total_indices.reshape(self.ndim, -1).mean(axis=1)
-
-    @total_indices.setter
-    def total_indices(self, indices):
-        self._total_indices = indices
-
-    @property
     def full_df_first_indices(self):
         """
         """
-        dim = self.ndim
+        dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
         if self._calculation_method == 'monte-carlo':
             pass
@@ -200,7 +242,7 @@ class SensitivityResults(object):
     def full_df_total_indices(self):
         """
         """
-        dim = self.ndim
+        dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
         if self._calculation_method == 'monte-carlo':
             pass
@@ -222,6 +264,17 @@ class SensitivityResults(object):
         df = melt_kriging(self.full_df_total_indices)
         return df
 
+    @property
+    def calculation_method(self):
+        """
+        """
+        return self._calculation_method
+
+    @calculation_method.setter
+    def calculation_method(self, method):
+        """
+        """
+        self._calculation_method = method
 
 def melt_kriging(df):
     """
@@ -280,6 +333,7 @@ class ProbabilisticModel(Model):
         self.input_distribution = input_distribution
         self._first_order_sobol_indices = None
         self._total_sobol_indices = None
+        self._shapley_indices = None
 
     @property
     def copula(self):
@@ -321,10 +375,10 @@ class ProbabilisticModel(Model):
         self._margins = margins
 
     @property
-    def ndim(self):
+    def dim(self):
         """The problem dimension.
         """
-        return self._ndim
+        return self._dim
 
     @property
     def input_distribution(self):
@@ -336,8 +390,8 @@ class ProbabilisticModel(Model):
     def input_distribution(self, dist):
         assert isinstance(dist, ot.DistributionImplementation), "The distribution should be an OpenTURNS implementation."
         self._input_distribution = dist
-        self._ndim = self._input_distribution.getDimension()
-        self._margins = [dist.getMarginal(i) for i in range(self._ndim)]
+        self._dim = self._input_distribution.getDimension()
+        self._margins = [dist.getMarginal(i) for i in range(self._dim)]
         self._copula = dist.getCopula()
 
     def get_input_sample(self, n_sample, sampling='lhs'):
@@ -397,10 +451,16 @@ class ProbabilisticModel(Model):
     def shapley_indices(self):
         """The true shapley effects.
         """
-        if self._shapley_indice is None:
+        if self._shapley_indices is None:
             print ('There is no true first order shapley effect.')
 
-        return self._shapley_indice
+        return self._shapley_indices
+
+    @shapley_indices.setter
+    def shapley_indices(self, indices):
+        """
+        """
+        self._shapley_indices = indices
 
     @property
     def sobol_indices(self):
@@ -408,7 +468,19 @@ class ProbabilisticModel(Model):
         """
         df = pd.DataFrame({'True first': self.first_order_sobol_indices,
                   'True total': self.total_sobol_indices,
-                  'Variables': ['$X_%d$' % (i+1) for i in range(self._ndim)]})
+                  'Variables': ['$X_%d$' % (i+1) for i in range(self._dim)]})
         true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
         
         return true_indices
+
+    @property
+    def indices(self):
+        """
+        """
+        df = pd.DataFrame({'True first': self.first_order_sobol_indices,
+                  'True total': self.total_sobol_indices,
+                  'True shapley': self.shapley_indices,
+                  'Variables': ['$X_%d$' % (i+1) for i in range(self._dim)]})
+        indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+        
+        return indices
