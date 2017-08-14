@@ -180,13 +180,13 @@ class ShapleyIndices(Indices):
 
         N = n_perms / dim if estimation_method == 'exact' else n_sob
 
-        shapley_indices = shapley_indices / n_perms / var_y.reshape(1, -1, 1, 1, 1)
-        total_indices = total_indices / N /  var_y.reshape(1, -1, 1, 1, 1)
-        first_indices = 1. - first_indices / N /  var_y.reshape(1, -1, 1, 1, 1)
+        shapley_indices = shapley_indices / n_perms / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
+        total_indices = total_indices / N / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
+        first_indices = 1. - first_indices / N / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
         
-        shapley_indices = shapley_indices.reshape(dim, -1)
-        total_indices = total_indices.reshape(dim, -1)
-        first_indices = first_indices.reshape(dim, -1)
+        shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
+        total_indices = total_indices.reshape(dim, n_boot, n_realization)
+        first_indices = first_indices.reshape(dim, n_boot, n_realization)
     
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, 
                                      shapley_indices=shapley_indices, calculation_method='shapley')

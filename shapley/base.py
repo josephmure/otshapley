@@ -185,7 +185,7 @@ class SensitivityResults(object):
             df_total_melt[feat_indices] = 'Total'
             all_df = [df_first_melt, df_total_melt]
             if self._shapley_indices is not None:
-                df_shapley = panel_data(self.shapley_indices, columns=columns)
+                df_shapley = panel_data(self._shapley_indices, columns=columns)
                 df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
                 df_shapley_melt[feat_indices] = 'Shapley'
                 all_df.append(df_shapley_melt)

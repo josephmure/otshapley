@@ -134,7 +134,7 @@ class KrigingModel(ProbabilisticModel):
     @input_sample.setter
     def input_sample(self, sample):
         n_sample, dim = sample.shape
-        assert dim == self._ndim, "Dimension should be the same as the input_distribution"
+        assert dim == self._dim, "Dimension should be the same as the input_distribution"
         self._n_sample = n_sample
         self._input_sample = sample
 
@@ -158,7 +158,7 @@ class KrigingModel(ProbabilisticModel):
 
     @covariance.setter
     def covariance(self, covariance):
-        self._covariance = get_covariance(covariance, self.library, self._ndim)
+        self._covariance = get_covariance(covariance, self.library, self._dim)
 
     @property
     def basis(self):
@@ -168,7 +168,7 @@ class KrigingModel(ProbabilisticModel):
 
     @basis.setter
     def basis(self, basis):
-        self._basis = get_basis(basis, self._ndim)
+        self._basis = get_basis(basis, self._dim)
 
     def compute_score_q2_loo(self):
         """Leave One Out estimation of Q2.
