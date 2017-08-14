@@ -144,7 +144,7 @@ def compute_output(method, m, model, Xall, Xcond, d, Nv, No, Ni = 3):
 
 # #### Caculate the Shapley effetcs and make bootstrap
 
-# In[6]:
+# In[20]:
 
 def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni = 3):
     
@@ -228,17 +228,21 @@ def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni = 3):
                 if (j == 0):
                     Tsob[b,pi[j]] = Tsob[b,pi[j]] + Chat # Total effect
                     nT[b,pi[j]] = nT[b,pi[j]] + 1
-    
-    Sh = Sh / m / VarY
-    
-    if (method == 'exact'):
-        Vsob = Vsob / (m/d) / VarY # averaging by number of permutations with j=d-1
-        Vsob = 1 - Vsob 
-        Tsob = Tsob / (m/d) / VarY # averaging by number of permutations with j=1 
-    else:
-        Vsob = Vsob / nV / VarY # averaging by number of permutations with j=d-1
-        Vsob = 1 - Vsob 
-        Tsob = Tsob / nT / VarY # averaging by number of permutations with j=1 
+        
+        Sh[b,:] = Sh[b,:] / m / VarY
+        
+        print('b  = '+str(b)+'\n')
+        
+        print('nV = '+str(nV)+'\n')
+        
+        if (method == 'exact'):
+            Vsob[b,:] = Vsob[b,:] / (m/d) / VarY # averaging by number of permutations with j=d-1
+            Vsob[b,:] = 1 - Vsob[b,:] 
+            Tsob[b,:] = Tsob[b,:] / (m/d) / VarY # averaging by number of permutations with j=1 
+        else:
+            Vsob[b,:] = Vsob[b,:] / nV[b,:] / VarY # averaging by number of permutations with j=d-1
+            Vsob[b,:] = 1 - Vsob[b,:] 
+            Tsob[b,:] = Tsob[b,:] / nT[b,:] / VarY # averaging by number of permutations with j=1 
     
     rownames = ['X' + str(i) for i in np.arange(d)+1]
     percentiles = [0.025,0.975]
@@ -266,14 +270,14 @@ def ShapleyPerm(method,bootstrap, perms, y, d, Nv, No, Ni = 3):
     CI_min = 2*Vsob_ref - (Vsob_describe.iloc[6].values)[:,np.newaxis]
     CI_max = 2*Vsob_ref - (Vsob_describe.iloc[4].values)[:,np.newaxis]
     
-    Vsob_out = np.concatenate((Vsob_ref,CI_min,CI_max), axis  =1)
+    Vsob_out = np.concatenate((Vsob_ref,CI_min,CI_max), axis  = 1)
     Vsob_out = pd.DataFrame(Vsob_out, index = rownames, columns = colnames)
     
     # Total order Sobol
     colnames = ['Total Sobol','IC_min','IC_max']
     
     Tsob = pd.DataFrame(Tsob)
-    Tsob_describe = Tsob.iloc[1:,:].describe(percentiles=[0.025,0.975])
+    Tsob_describe = Tsob.iloc[1:,:].describe(percentiles = [0.025,0.975])
     
     Tsob_ref = (Tsob.iloc[0].values)[:,np.newaxis]
     CI_min = 2*Tsob_ref - (Tsob_describe.iloc[6].values)[:,np.newaxis]
@@ -347,7 +351,7 @@ writer.save()
 
 # #### Estimate Shapley effects with random permutations
 
-# In[10]:
+# In[21]:
 
 method = 'random'
 m = 6000
