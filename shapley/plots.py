@@ -64,21 +64,18 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None):
         raise ValueError('Unknow kind {0}'.format(kind))
 
     if results.true_indices is not None:
-        if indice == 'all':
-            true_indices = results.true_indices
-            palette = {'True first': "y", 'True total': "m", 'True shapley': "c"}
-            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, 
-                          dodge=True, palette=palette, size=9);
-        elif indice == 'first':
-            true_indices = results.true_indices[results.true_indices['Indices'] == 'True first']
-            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
-        elif indice == 'total':
-            true_indices = results.true_indices[results.true_indices['Indices'] == 'True total']
-            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
-        elif indice == 'shapley':
-            true_indices = results.true_indices[results.true_indices['Indices'] == 'True shapley']
-            sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, size=9, palette='Set1');
-    return ax
+        true_indices = results.true_indices
+        dodge = True if indice == 'all' else False
+        colors = {'True first': "y", 'True total': "m", 'True shapley': "c"}
+        names = {'all': true_indices['Indices'].unique(), 
+                 'first': 'True first', 
+                 'total': 'True total', 
+                 'shapley': 'True shapley'}
+
+        palette = {k:colors[k] for k in names[indice] if k in colors}
+        if indice != 'all':
+            true_indices = results.true_indices[results.true_indices['Indices'] == names[indice]]
+        sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, dodge=dodge, size=9, palette=palette);
 
 def plot_violin(df, with_hue=False, true_indices=None, ax=None, figsize=(8, 4), ylim=None, savefig=''):
     """

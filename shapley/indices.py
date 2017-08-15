@@ -29,15 +29,14 @@ class Indices(Base):
         input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
         
         # The modified samples for each dimension
-
+        
+        all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
         if n_realization == 1:
-            all_output_sample_2t = np.zeros((dim, n_sample))
             output_sample_1 = model(input_sample_1)
             output_sample_2 = model(input_sample_2)
-            output_sample_1 = np.c_[[output_sample_1]*dim]
-            output_sample_2 = np.c_[[output_sample_2]*dim]
+            output_sample_1 = np.c_[[output_sample_1]*dim].reshape(dim, n_sample, n_realization)
+            output_sample_2 = np.c_[[output_sample_2]*dim].reshape(dim, n_sample, n_realization)
         else:
-            all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
             output_sample_1 = np.zeros((dim, n_sample, n_realization))
             output_sample_2 = np.zeros((dim, n_sample, n_realization))
 
@@ -48,7 +47,7 @@ class Indices(Base):
             X2t[:, i] = X1[:, i]
 
             if n_realization == 1:
-                all_output_sample_2t[i] = model(X2t)
+                all_output_sample_2t[i] = model(X2t).reshape(n_sample, n_realization)
             else:
                 output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
                 output_sample_1[i] = output_sample_i[:n_sample, :]
@@ -74,16 +73,16 @@ class Indices(Base):
         U_2 = np.asarray(norm_dist.getSample(n_sample))
         
         # The modified samples for each dimension
-        if n_realization == 1:
-            all_output_sample_1 = np.zeros((dim, n_sample, ))
-            all_output_sample_2 = np.zeros((dim, n_sample, ))
-            all_output_sample_2t = np.zeros((dim, n_sample, ))
-            all_output_sample_2t1 = np.zeros((dim, n_sample, ))
-        else:
-            all_output_sample_1 = np.zeros((dim, n_sample, n_realization))
-            all_output_sample_2 = np.zeros((dim, n_sample, n_realization))
-            all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
-            all_output_sample_2t1 = np.zeros((dim, n_sample, n_realization))
+        #if n_realization == 1:
+        #    all_output_sample_1 = np.zeros((dim, n_sample, ))
+        #    all_output_sample_2 = np.zeros((dim, n_sample, ))
+        #    all_output_sample_2t = np.zeros((dim, n_sample, ))
+        #    all_output_sample_2t1 = np.zeros((dim, n_sample, ))
+        #else:
+        all_output_sample_1 = np.zeros((dim, n_sample, n_realization))
+        all_output_sample_2 = np.zeros((dim, n_sample, n_realization))
+        all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
+        all_output_sample_2t1 = np.zeros((dim, n_sample, n_realization))
         
         for i in range(dim):
             # Copy of the input dstribution
@@ -159,12 +158,12 @@ class Indices(Base):
         n_sample = self.n_sample
         n_realization = self.n_realization
         
-        if n_realization == 1:
-            first_indices = np.zeros((dim, n_boot))
-            total_indices = np.zeros((dim, n_boot))
-        else:
-            first_indices = np.zeros((dim, n_boot, n_realization))
-            total_indices = np.zeros((dim, n_boot, n_realization))
+        #if n_realization == 1:
+        #    first_indices = np.zeros((dim, n_boot))
+        #    total_indices = np.zeros((dim, n_boot))
+        #else:
+        first_indices = np.zeros((dim, n_boot, n_realization))
+        total_indices = np.zeros((dim, n_boot, n_realization))
 
         if indice_type in ['classic', 'full']:
             dev = 0
@@ -183,7 +182,8 @@ class Indices(Base):
             Y1 = self.all_output_sample_1[i]
             Y2 = self.all_output_sample_2[i]
             Y2t = sample_Y2t[i]
-            first_indices[i-dev], total_indices[i-dev] = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
+            first, total = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
+            first_indices[i-dev], total_indices[i-dev] = first.reshape(n_boot, n_realization), total.reshape(n_boot, n_realization)
 
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results

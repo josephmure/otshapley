@@ -93,14 +93,19 @@ class SensitivityResults(object):
     def true_indices(self):
         """The true sensitivity results
         """
-        df = pd.DataFrame({'True first': self.true_first_indices,
-            'True total': self.true_total_indices,
-            'True shapley': self.true_shapley_indices,
-            'Variables': ['$X_%d$' % (i+1) for i in range(self.dim)]})
-        df = df[['True first', 'True total', 'True shapley', 'Variables']]
-        indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
-        
-        return indices
+        data = {}
+        if self.true_first_indices:
+            data['True first'] = self.true_first_indices
+        if self.true_total_indices:
+            data['True total'] = self.true_total_indices
+        if self.true_shapley_indices:
+            data['True shapley'] = self.true_shapley_indices
+            
+        if data != {}:
+            data['Variables'] = ['$X_%d$' % (i+1) for i in range(self.dim)]
+            df = pd.DataFrame(data)
+            indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+            return indices
 
     @property
     def first_indices(self):
@@ -111,6 +116,7 @@ class SensitivityResults(object):
     @first_indices.setter
     def first_indices(self, indices):
         if indices is not None:
+            indices = np.asarray(indices)
             self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
         self._first_indices = indices
 
@@ -123,6 +129,7 @@ class SensitivityResults(object):
     @total_indices.setter
     def total_indices(self, indices):
         if indices is not None:
+            indices = np.asarray(indices)
             self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
         self._total_indices = indices
 
@@ -135,6 +142,7 @@ class SensitivityResults(object):
     @shapley_indices.setter
     def shapley_indices(self, indices):
         if indices is not None:
+            indices = np.asarray(indices)
             self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
         self._shapley_indices = indices
 
@@ -163,34 +171,33 @@ class SensitivityResults(object):
         feat_indices = 'Indices'
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
 
-        if self.n_realization == 1:
-            df_first = pd.DataFrame(self._first_indices.squeeze().T, columns=columns)
-            df_total = pd.DataFrame(self._total_indices.squeeze().T, columns=columns)
-            df_first[feat_indices] = 'First'
-            df_total[feat_indices] = 'Total'
-            all_df = [df_first, df_total]
-            if self._shapley_indices is not None:
-                df_shapley = pd.DataFrame(self._shapley_indices.squeeze().T, columns=columns)
-                df_shapley[feat_indices] = 'Shapley'
-                all_df.append(df_shapley)
-            df = pd.concat(all_df)
-            df = pd.melt(df, id_vars=[feat_indices], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
+        #if self.n_realization == 1:
+        #    df_first = pd.DataFrame(self._first_indices.squeeze().T, columns=columns)
+        #    df_total = pd.DataFrame(self._total_indices.squeeze().T, columns=columns)
+        #    df_first[feat_indices] = 'First'
+        #    df_total[feat_indices] = 'Total'
+        #    all_df = [df_first, df_total]
+        #    if self._shapley_indices is not None:
+        #        df_shapley = pd.DataFrame(self._shapley_indices.squeeze().T, columns=columns)
+        #        df_shapley[feat_indices] = 'Shapley'
+        #        all_df.append(df_shapley)
+        #    df = pd.concat(all_df)
+        #    df = pd.melt(df, id_vars=[feat_indices], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
+        #else:
+        df_first = panel_data(self._first_indices, columns=columns)
+        df_total = panel_data(self._total_indices, columns=columns)
+        df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
+        df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
+        df_first_melt[feat_indices] = 'First'
+        df_total_melt[feat_indices] = 'Total'
+        all_df = [df_first_melt, df_total_melt]
+        if self._shapley_indices is not None:
+            df_shapley = panel_data(self._shapley_indices, columns=columns)
+            df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
+            df_shapley_melt[feat_indices] = 'Shapley'
+            all_df.append(df_shapley_melt)
 
-        else:
-            df_first = panel_data(self._first_indices, columns=columns)
-            df_total = panel_data(self._total_indices, columns=columns)
-            df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
-            df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
-            df_first_melt[feat_indices] = 'First'
-            df_total_melt[feat_indices] = 'Total'
-            all_df = [df_first_melt, df_total_melt]
-            if self._shapley_indices is not None:
-                df_shapley = panel_data(self._shapley_indices, columns=columns)
-                df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
-                df_shapley_melt[feat_indices] = 'Shapley'
-                all_df.append(df_shapley_melt)
-
-            df = pd.concat(all_df)
+        df = pd.concat(all_df)
 
         return df
     
