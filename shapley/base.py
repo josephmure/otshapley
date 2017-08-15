@@ -49,9 +49,9 @@ class Base(object):
 
 
 def panel_data(data, columns=None):
+    """										## add comment
     """
-    """
-    dim, n_boot, n_realization = data.shape
+    dim, n_boot, n_realization = data.shape 		## n_realization for what?
     names = ('Variables', 'Bootstrap', 'Kriging')
     idx = [columns, range(n_boot), range(n_realization)]
     index = pd.MultiIndex.from_product(idx, names=names)
@@ -59,7 +59,7 @@ def panel_data(data, columns=None):
     return df
 
 def get_shape(indices):
-    """
+    """									## add comment
     """
     if indices.ndim == 1:
         dim = indices.shape[0]
@@ -74,7 +74,7 @@ def get_shape(indices):
     return dim, n_boot, n_realization
 
 class SensitivityResults(object):
-    """
+    """							## add comment for each function of this part
     """
     def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, calculation_method=None, true_first_indices=None,
                  true_total_indices=None, true_shapley_indices=None):
@@ -90,7 +90,7 @@ class SensitivityResults(object):
         self.calculation_method = calculation_method
 
     @property
-    def true_indices(self):
+    def true_indices(self):					## Is it really used?
         """The true sensitivity results
         """
         data = {}
@@ -316,7 +316,7 @@ class Model(object):
         return y
 
 
-class ProbabilisticModel(Model):
+class ProbabilisticModel(Model):			## add some comments in this class
     """Create probabilistic model instances.
 
     Parameters

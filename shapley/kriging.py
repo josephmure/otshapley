@@ -81,6 +81,8 @@ class KrigingModel(ProbabilisticModel):
         self.input_sample = np.asarray(input_sample)
         self.output_sample = self.true_model(input_sample)
 
+# before, the default library is OT and now and sklearn?
+
     def build(self, library='sklearn', kernel='matern', basis_type='linear'):
         """Build the Kriging model.
 
@@ -91,7 +93,7 @@ class KrigingModel(ProbabilisticModel):
         if library == 'OT':
             self.covariance = kernel
             self.basis = basis_type
-            kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)
+            kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)   ## cov and basis reversed wrt the doc
             kriging_algo.run()
             self.kriging_result = kriging_algo.getResult()
 
@@ -118,7 +120,7 @@ class KrigingModel(ProbabilisticModel):
         else:
             raise ValueError('Unknow library {0}'.format(library))
 
-        self.predict = predict
+        self.predict = predict                                                             ## difference between predict and metamodel
         self.model_func = meta_model
 
     def __call__(self, X, n_realization=1):
@@ -220,7 +222,7 @@ def q2_cv(ytrue, ypred):
        
     ytrue = ytrue.squeeze()
     ypred = ypred.squeeze()
-    q2 = max(0., test_q2(ytrue, ypred))
+    q2 = max(0., test_q2(ytrue, ypred))                     ## thus useless ?
     return q2
 
 def q2_loo(input_sample, output_sample, library, covariance, basis=None):
