@@ -122,7 +122,7 @@ class ShapleyIndices(Base):
         self.Ni = Ni
         self.n_realization = n_realization
 
-    def compute_indices(self, n_boot_var, n_boot_Ni, n_boot_No):
+    def compute_indices(self, n_boot):
         """
         """
         dim = self.dim
@@ -133,42 +133,38 @@ class ShapleyIndices(Base):
         perms = self.perms
         estimation_method = self.estimation_method
         n_perms = len(perms)
-        n_boot = n_boot_var*n_boot_Ni*n_boot_No
 
         # Initialize Shapley, main and total Sobol effects for all players
-        shapley_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
-        first_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
-        total_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
-        n_sob = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
+        shapley_indices = np.zeros((dim, n_boot, n_realization))
+        first_indices = np.zeros((dim, n_boot, n_realization))
+        total_indices = np.zeros((dim, n_boot, n_realization))
+        n_sob = np.zeros((dim, n_boot, n_realization))
+        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
 
-        # Bootstrap sample indexes
-        if n_boot > 1:
-            boot_var_idx = np.random.randint(0, Nv, size=(Nv, n_boot_var))
-            boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, n_boot_Ni))
-            boot_No_idx = np.random.randint(0, No, size=(No, n_boot_No))
-        else:
-            boot_var_idx = range(0, Nv)
-            boot_Ni_idx = range(0, Ni)
-            boot_No_idx = range(0, No)
+        variances = np.zeros((n_boot, ))
+        for i in range(n_boot):
+            # Bootstrap sample indexes
+            if n_boot > 1:
+                boot_var_idx = np.random.randint(0, Nv, size=(Nv, ))
+                boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, ))
+                boot_No_idx = np.random.randint(0, No, size=(No, ))
+            else:
+                boot_var_idx = range(0, Nv)
+                boot_Ni_idx = range(0, Ni)
+                boot_No_idx = range(0, No)
 
-        # Output variance
-        var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
-        
-        # Conditional variances
-        output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
-        output_sample_2 = output_sample_2[:, :, boot_No_idx].swapaxes(3, 4)
-        c_var = output_sample_2.var(axis=3, ddof=1)
+            # Output variance
+            var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
+            variances[i] = var_y
+            # Conditional variances
+            output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
+            output_sample_2 = output_sample_2[:, :, boot_No_idx]
+            c_var = output_sample_2.var(axis=3, ddof=1)
 
-        # Conditional exceptations
-        c_mean_var = c_var.mean(axis=2)
+            # Conditional exceptations
+            c_mean_var = c_var.mean(axis=2)
 
-        # Cost estimations
-        # TODO: vectorize this loop
-        c_hat = np.zeros((n_perms, dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
-        for i_b in range(n_boot_var):
-            for i_1 in range(n_boot_No):
-                for i_2 in range(n_boot_Ni):
-                    c_hat[:, :, i_b, i_1, i_2] = np.concatenate((c_mean_var[:, :, i_1, i_2], [var_y[i_b].reshape(1, -1)]*n_perms), axis=1)
+            c_hat[:, :, i] = np.concatenate((c_mean_var, [var_y.reshape(1, -1)]*n_perms), axis=1)
 
         # Cost variation
         delta_c = c_hat.copy()
@@ -183,9 +179,9 @@ class ShapleyIndices(Base):
 
         N = n_perms / dim if estimation_method == 'exact' else n_sob
 
-        shapley_indices = shapley_indices / n_perms / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
-        total_indices = total_indices / N / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
-        first_indices = 1. - first_indices / N / var_y.reshape(1, n_boot_var, 1, 1, n_realization)
+        shapley_indices = shapley_indices / n_perms / variances.reshape(1, n_boot, n_realization)
+        total_indices = total_indices / N / variances.reshape(1, n_boot, n_realization)
+        first_indices = 1. - first_indices / N / variances.reshape(1, n_boot, n_realization)
         
         shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
