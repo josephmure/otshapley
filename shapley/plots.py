@@ -2,7 +2,7 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
-
+from collections import OrderedDict
 
 def set_style_paper():
     # This sets reasonable defaults for font size for
@@ -72,8 +72,19 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None):
                  'total': 'True total', 
                  'shapley': 'True shapley'}
 
-        palette = {k:colors[k] for k in names[indice] if k in colors}
-        if indice != 'all':
+        if indice == 'all':
+            indice_names = {'First': 'first',
+                      'Total': 'total',
+                      'Shapley': 'shapley'}
+            df = pd.DataFrame(columns=true_indices.columns)
+            for name in df_indices.Indices.unique():
+                tmp = names[indice_names[name]]
+                if tmp in true_indices['Indices'].unique():
+                    df = pd.concat([df, true_indices[true_indices['Indices'] == tmp]])
+            true_indices = df
+            palette = {k: colors[k] for k in names[indice] if k in colors}
+        else:
+            palette = {names[indice]: colors[names[indice]]}
             true_indices = results.true_indices[results.true_indices['Indices'] == names[indice]]
         sns.stripplot(x='Variables', y='Indice values', data=true_indices, hue='Indices', ax=ax, dodge=dodge, size=9, palette=palette);
 

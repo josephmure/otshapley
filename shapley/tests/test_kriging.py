@@ -34,11 +34,11 @@ def test_sobol_kriging_ishigami_ind_bench_matern_OT():
     sobol_kriging.build_mc_sample(model=meta_model, n_sample=500, n_realization=100)
     sobol_results = sobol_kriging.compute_indices(n_boot=200, estimator=ESTIMATOR)
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_first[0, :], ishigami.first_order_sobol_indices)
     np.testing.assert_array_less(ishigami.first_order_sobol_indices, quantiles_first[1, :])
 
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_total[0, :], ishigami.total_sobol_indices)
     np.testing.assert_array_less(ishigami.total_sobol_indices, quantiles_total[1, :])
 
@@ -54,11 +54,11 @@ def test_sobol_kriging_ishigami_ind_bench_spherical_OT():
     sobol_kriging.build_mc_sample(model=meta_model, n_sample=500, n_realization=100)
     sobol_results = sobol_kriging.compute_indices(n_boot=200, estimator=ESTIMATOR)
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_first[0, :], ishigami.first_order_sobol_indices)
     np.testing.assert_array_less(ishigami.first_order_sobol_indices, quantiles_first[1, :])
 
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_total[0, :], ishigami.total_sobol_indices)
     np.testing.assert_array_less(ishigami.total_sobol_indices, quantiles_total[1, :])
     
@@ -76,11 +76,11 @@ def test_sobol_kriging_ishigami_ind_OT(sampling, basis_type, kernel):
 
     sobol_results = sobol_kriging.compute_indices(n_boot=N_BOOT, estimator=ESTIMATOR)
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_first[0, :], ishigami.first_order_sobol_indices)
     np.testing.assert_array_less(ishigami.first_order_sobol_indices, quantiles_first[1, :])
 
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_total[0, :], ishigami.total_sobol_indices)
     np.testing.assert_array_less(ishigami.total_sobol_indices, quantiles_total[1, :])
 
@@ -97,11 +97,11 @@ def test_sobol_kriging_ishigami_ind_SK(sampling, kernel):
 
     sobol_results = sobol_kriging.compute_indices(n_boot=N_BOOT, estimator=ESTIMATOR)
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_first[0, :], ishigami.first_order_sobol_indices)
     np.testing.assert_array_less(ishigami.first_order_sobol_indices, quantiles_first[1, :])
 
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.ndim, -1), [5, 95], axis=1)
+    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(ishigami.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_total[0, :], ishigami.total_sobol_indices)
     np.testing.assert_array_less(ishigami.total_sobol_indices, quantiles_total[1, :])
 
@@ -139,10 +139,10 @@ def test_full_ind_sobol_kriging_gaussian_dep_SK(theta, ind_type):
     else:
         raise ValueError('Unknow value {0}'.format(ind_type))
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(model.ndim, -1), [5, 95], axis=1)
+    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(model.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_first[0, :], model.first_order_sobol_indices)
     np.testing.assert_array_less(model.first_order_sobol_indices, quantiles_first[1, :])
 
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(model.ndim, -1), [5, 95], axis=1)
+    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(model.dim, -1), [5, 95], axis=1)
     np.testing.assert_array_less(quantiles_total[0, :], model.total_sobol_indices)
     np.testing.assert_array_less(model.total_sobol_indices, quantiles_total[1, :])

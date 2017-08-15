@@ -71,14 +71,7 @@ class Indices(Base):
         # Independent samples
         U_1 = np.asarray(norm_dist.getSample(n_sample))
         U_2 = np.asarray(norm_dist.getSample(n_sample))
-        
-        # The modified samples for each dimension
-        #if n_realization == 1:
-        #    all_output_sample_1 = np.zeros((dim, n_sample, ))
-        #    all_output_sample_2 = np.zeros((dim, n_sample, ))
-        #    all_output_sample_2t = np.zeros((dim, n_sample, ))
-        #    all_output_sample_2t1 = np.zeros((dim, n_sample, ))
-        #else:
+
         all_output_sample_1 = np.zeros((dim, n_sample, n_realization))
         all_output_sample_2 = np.zeros((dim, n_sample, n_realization))
         all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
@@ -117,7 +110,7 @@ class Indices(Base):
             # 4) Model evaluations
             X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]
             if n_realization == 1:
-                output_sample_i = model(X)
+                output_sample_i = model(X).reshape(4*n_sample, n_realization)
             else:
                 output_sample_i = model(X, n_realization)
 
@@ -157,11 +150,7 @@ class Indices(Base):
         dim = self.dim
         n_sample = self.n_sample
         n_realization = self.n_realization
-        
-        #if n_realization == 1:
-        #    first_indices = np.zeros((dim, n_boot))
-        #    total_indices = np.zeros((dim, n_boot))
-        #else:
+
         first_indices = np.zeros((dim, n_boot, n_realization))
         total_indices = np.zeros((dim, n_boot, n_realization))
 
@@ -183,8 +172,15 @@ class Indices(Base):
             Y2 = self.all_output_sample_2[i]
             Y2t = sample_Y2t[i]
             first, total = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-            first_indices[i-dev], total_indices[i-dev] = first.reshape(n_boot, n_realization), total.reshape(n_boot, n_realization)
+            if first is not None:
+                first = first.reshape(n_boot, n_realization)
+            if total is not None:
+                total = total.reshape(n_boot, n_realization)
 
+            first_indices[i-dev], total_indices[i-dev] = first, total
+
+        if np.isnan(total_indices).all():
+            total_indices = None
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results
 

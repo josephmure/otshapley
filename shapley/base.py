@@ -51,9 +51,9 @@ class Base(object):
 def panel_data(data, columns=None):
     """
     """
-    dim, n_realization, n_boot = data.shape
-    names = ('Variables', 'Kriging', 'Bootstrap')
-    idx = [columns, range(n_realization), range(n_boot)]
+    dim, n_boot, n_realization = data.shape
+    names = ('Variables', 'Bootstrap', 'Kriging')
+    idx = [columns, range(n_boot), range(n_realization)]
     index = pd.MultiIndex.from_product(idx, names=names)
     df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
     return df
@@ -94,11 +94,11 @@ class SensitivityResults(object):
         """The true sensitivity results
         """
         data = {}
-        if self.true_first_indices:
+        if self.true_first_indices is not None:
             data['True first'] = self.true_first_indices
-        if self.true_total_indices:
+        if self.true_total_indices is not None:
             data['True total'] = self.true_total_indices
-        if self.true_shapley_indices:
+        if self.true_shapley_indices is not None:
             data['True shapley'] = self.true_shapley_indices
             
         if data != {}:
@@ -111,7 +111,8 @@ class SensitivityResults(object):
     def first_indices(self):
         """The first sobol sensitivity estimation.
         """
-        return self._first_indices.reshape(self.dim, -1).mean(axis=1)
+        if self._first_indices is not None:
+            return self._first_indices.reshape(self.dim, -1).mean(axis=1)
 
     @first_indices.setter
     def first_indices(self, indices):
@@ -124,7 +125,8 @@ class SensitivityResults(object):
     def total_indices(self):
         """The total Sobol sensitivity indicies estimations.
         """
-        return self._total_indices.reshape(self.dim, -1).mean(axis=1)
+        if self._total_indices is not None:
+            return self._total_indices.reshape(self.dim, -1).mean(axis=1)
 
     @total_indices.setter
     def total_indices(self, indices):
@@ -137,7 +139,8 @@ class SensitivityResults(object):
     def shapley_indices(self):
         """The Shapley indicies estimations.
         """
-        return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
+        if self._shapley_indices is not None:
+            return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
 
     @shapley_indices.setter
     def shapley_indices(self, indices):
@@ -170,27 +173,17 @@ class SensitivityResults(object):
         n_realization = self.n_realization
         feat_indices = 'Indices'
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
-
-        #if self.n_realization == 1:
-        #    df_first = pd.DataFrame(self._first_indices.squeeze().T, columns=columns)
-        #    df_total = pd.DataFrame(self._total_indices.squeeze().T, columns=columns)
-        #    df_first[feat_indices] = 'First'
-        #    df_total[feat_indices] = 'Total'
-        #    all_df = [df_first, df_total]
-        #    if self._shapley_indices is not None:
-        #        df_shapley = pd.DataFrame(self._shapley_indices.squeeze().T, columns=columns)
-        #        df_shapley[feat_indices] = 'Shapley'
-        #        all_df.append(df_shapley)
-        #    df = pd.concat(all_df)
-        #    df = pd.melt(df, id_vars=[feat_indices], value_vars=columns, var_name='Variables', value_name=VALUE_NAME)
-        #else:
-        df_first = panel_data(self._first_indices, columns=columns)
-        df_total = panel_data(self._total_indices, columns=columns)
-        df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
-        df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
-        df_first_melt[feat_indices] = 'First'
-        df_total_melt[feat_indices] = 'Total'
-        all_df = [df_first_melt, df_total_melt]
+        all_df = []
+        if self._first_indices is not None:
+            df_first = panel_data(self._first_indices, columns=columns)
+            df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
+            df_first_melt[feat_indices] = 'First'
+            all_df.append(df_first_melt)
+        if self._total_indices is not None:
+            df_total = panel_data(self._total_indices, columns=columns)
+            df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
+            df_total_melt[feat_indices] = 'Total'
+            all_df.append(df_total_melt)
         if self._shapley_indices is not None:
             df_shapley = panel_data(self._shapley_indices, columns=columns)
             df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
@@ -207,23 +200,24 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
-        if self._calculation_method == 'monte-carlo':
-            pass
-        elif self._calculation_method == 'kriging-mc':
-            df_first = panel_data(self._first_indices, columns=columns)
-            df_total = panel_data(self._total_indices, columns=columns)
-            df_first['Indices'] = 'First'
-            df_total['Indices'] = 'Total'
+        df_first = panel_data(self._first_indices, columns=columns)
+        df_total = panel_data(self._total_indices, columns=columns)
+        df_first['Indices'] = 'First'
+        df_total['Indices'] = 'Total'
 
-            df = pd.concat([df_first, df_total])
-            return df
+        df = pd.concat([df_first, df_total])
+        return df
 
     @property
     def full_first_indices(self):
         """
         """
-        return self._first_indices
-
+        if np.isnan(self._first_indices).all():
+            raise ValueError('The value is not registered')
+        if self.n_realization == 1:
+            return self._first_indices[:, :, 0]
+        else:
+            return self._first_indices
     
     @property
     def full_total_indices(self):
@@ -231,7 +225,10 @@ class SensitivityResults(object):
         """
         if np.isnan(self._total_indices).all():
             raise ValueError('The value is not registered')
-        return self._total_indices
+        if self.n_realization == 1:
+            return self._total_indices[:, :, 0]
+        else:
+            return self._total_indices
 
     @property
     def full_df_first_indices(self):
@@ -239,10 +236,7 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
-        if self._calculation_method == 'monte-carlo':
-            pass
-        elif self._calculation_method == 'kriging-mc':
-            df = panel_data(self._first_indices, columns=columns)
+        df = panel_data(self._first_indices, columns=columns)
         return df
 
     @property
@@ -251,10 +245,7 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_%d$' % (i+1) for i in range(dim)]
-        if self._calculation_method == 'monte-carlo':
-            pass
-        elif self._calculation_method == 'kriging-mc':
-            df = panel_data(self._total_indices, columns=columns)
+        df = panel_data(self._total_indices, columns=columns)
         return df
 
     @property
@@ -288,11 +279,11 @@ def melt_kriging(df):
     """
     df_boot = df.mean(level=['Variables', 'Kriging'])
     df_boot_melt = pd.melt(df_boot.T, value_name=VALUE_NAME)
-    df_boot_melt['Error'] = 'Kriging'
+    df_boot_melt['Error'] = 'Bootstrap'
 
     df_kriging = df.mean(level=['Variables', 'Bootstrap'])
     df_kriging_melt = pd.melt(df_kriging.T, value_name=VALUE_NAME)
-    df_kriging_melt['Error'] = 'Bootstrap'
+    df_kriging_melt['Error'] = 'Kriging'
 
     df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
     return df
