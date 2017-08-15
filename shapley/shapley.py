@@ -140,8 +140,10 @@ class ShapleyIndices(Base):
         total_indices = np.zeros((dim, n_boot, n_realization))
         n_sob = np.zeros((dim, n_boot, n_realization))
         c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
+        
+        # TODO: ugly... Do it better
+        variance = np.zeros((n_boot, ))
 
-        variances = np.zeros((n_boot, ))
         for i in range(n_boot):
             # Bootstrap sample indexes
             if n_boot > 1:
@@ -152,10 +154,11 @@ class ShapleyIndices(Base):
                 boot_var_idx = range(0, Nv)
                 boot_Ni_idx = range(0, Ni)
                 boot_No_idx = range(0, No)
-
+                
             # Output variance
             var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
-            variances[i] = var_y
+            variance[i] = var_y
+
             # Conditional variances
             output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
             output_sample_2 = output_sample_2[:, :, boot_No_idx]
@@ -164,6 +167,7 @@ class ShapleyIndices(Base):
             # Conditional exceptations
             c_mean_var = c_var.mean(axis=2)
 
+            # Cost estimation
             c_hat[:, :, i] = np.concatenate((c_mean_var, [var_y.reshape(1, -1)]*n_perms), axis=1)
 
         # Cost variation
@@ -179,9 +183,9 @@ class ShapleyIndices(Base):
 
         N = n_perms / dim if estimation_method == 'exact' else n_sob
 
-        shapley_indices = shapley_indices / n_perms / variances.reshape(1, n_boot, n_realization)
-        total_indices = total_indices / N / variances.reshape(1, n_boot, n_realization)
-        first_indices = 1. - first_indices / N / variances.reshape(1, n_boot, n_realization)
+        shapley_indices = shapley_indices / n_perms / variance.reshape(1, n_boot, n_realization)
+        total_indices = total_indices / N / variance.reshape(1, n_boot, n_realization)
+        first_indices = 1. - first_indices / N / variance.reshape(1, n_boot, n_realization)
         
         shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
