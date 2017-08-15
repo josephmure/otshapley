@@ -53,9 +53,6 @@ INDICE_TYPES = ['full', 'ind']
 
 ESTIMATORS_THETAS_TYPES = list(product(ESTIMATORS, THETAS, INDICE_TYPES))
 
-#estimator = ESTIMATORS[3]
-#theta = THETAS[0]
-#ind_type = INDICE_TYPES[1]
 
 # Tests from Mara & Tarantola 2012/2015
 @pytest.mark.parametrize("estimator, theta, ind_type", ESTIMATORS_THETAS_TYPES)

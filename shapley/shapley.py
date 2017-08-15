@@ -3,7 +3,7 @@ import itertools
 import openturns as ot
 import pandas as pd
 
-from .indices import Indices
+from .base import Base
 from .kriging import KrigingIndices
 from .base import SensitivityResults
 
@@ -38,14 +38,16 @@ def r_condMVN(n, mean, cov, dependent_ind, given_ind, X_given):
     distribution = ot.Normal(cond_mean, cond_var)
     return distribution.getSample(n)
 
-
 def cond_sampling(dist, n_sample, idx, idx_c, x_cond):
+    """
+    """
     covariance = np.asarray(dist.getCovariance())
     mean = np.asarray(dist.getMean())
     return r_condMVN(n_sample, mean=mean, cov=covariance, dependent_ind=idx, given_ind=idx_c, X_given=x_cond)
 
 def sub_sampling(dist, n_sample, idx):
-    # Sampling of the complementary set
+    """Sampling of a given set
+    """
     covariance = np.asarray(dist.getCovariance())
     mean = np.asarray(dist.getMean())
     cov_sub = covariance.take(idx, axis=1)[idx, :]
@@ -53,15 +55,18 @@ def sub_sampling(dist, n_sample, idx):
     sample = np.asarray(dist_sub.getSample(n_sample))
     return sample
 
-class ShapleyIndices(Indices):
+class ShapleyIndices(Base):
     """Shappley indices object estimator.
     """
     def __init__(self, input_distribution):
-        Indices.__init__(self, input_distribution)
-        # Add shapley function
-        self.indice_func = None
+        Base.__init__(self, input_distribution)
 
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=1):
+    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3):
+        """
+        """
+        return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
+
+    def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
         """
         """
         dim = self.dim
@@ -136,6 +141,7 @@ class ShapleyIndices(Indices):
         total_indices = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
         n_sob = np.zeros((dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
 
+        # Bootstrap sample indexes
         if n_boot > 1:
             boot_var_idx = np.random.randint(0, Nv, size=(Nv, n_boot_var))
             boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, n_boot_Ni))
@@ -150,17 +156,14 @@ class ShapleyIndices(Indices):
         
         # Conditional variances
         output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
-        print('1: output_sample_2:', output_sample_2.shape)
         output_sample_2 = output_sample_2[:, :, boot_No_idx].swapaxes(3, 4)
-        print('2: output_sample_2:', output_sample_2.shape)
         c_var = output_sample_2.var(axis=3, ddof=1)
-        print('c_var:', c_var.shape)
 
         # Conditional exceptations
         c_mean_var = c_var.mean(axis=2)
-        print('c_mean_var:', c_mean_var.shape)
 
         # Cost estimations
+        # TODO: vectorize this loop
         c_hat = np.zeros((n_perms, dim, n_boot_var, n_boot_No, n_boot_Ni, n_realization))
         for i_b in range(n_boot_var):
             for i_1 in range(n_boot_No):
@@ -188,8 +191,8 @@ class ShapleyIndices(Indices):
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
         first_indices = first_indices.reshape(dim, n_boot, n_realization)
     
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, 
-                                     shapley_indices=shapley_indices, calculation_method='shapley')
+        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices,
+                                     shapley_indices=shapley_indices)
         return results
 
 
@@ -199,3 +202,9 @@ class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
     def __init__(self, input_distribution):
         KrigingIndices.__init__(self, input_distribution)
         ShapleyIndices.__init__(self, input_distribution)
+
+        
+    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
+        """
+        """
+        return self._build_mc_sample(model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10)

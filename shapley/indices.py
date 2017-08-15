@@ -183,7 +183,3 @@ class Indices(Base):
             total_indices = None
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
         return results
-
-
-def take_sample():
-    pass
