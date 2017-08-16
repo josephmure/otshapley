@@ -1,6 +1,9 @@
 import seaborn as sns
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
 from scipy import stats
 from collections import OrderedDict
 
@@ -171,3 +174,64 @@ def corrfunc_plot(x, y, **kws):
     ax.annotate("r = {:.2f}\nk = {:.2f}".format(r, k),
                 xy=(.1, .8), xycoords=ax.transAxes, 
                 weight='heavy', fontsize=12)
+
+
+def plot_correlation_indices(result_indices, corrs, n_boot, to_plot=['Shapley'], linewidth=1, markersize=10, ax=None, figsize=(9, 5), alpha=[0.05, 0.95]):
+    """
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    dim = 3
+    columns = ['$X_%d$' % (i+1) for i in range(dim)]
+    names = ('Correlation', 'Variables', 'Bootstrap')
+    idx = [corrs, columns, range(n_boot)]
+    index = pd.MultiIndex.from_product(idx, names=names)
+
+    markers = {'Shapley': 'o',
+               'First Sobol': '*',
+               'Total Sobol': '.',
+               'First full Sobol': 8,
+               'Total full Sobol': 9,
+               'First ind Sobol': 10,
+               'Total ind Sobol': 11,
+               }
+
+    colors = {'$X_1$': 'b',
+             '$X_2$': 'r',
+             '$X_3$': 'g'}
+
+    for name in result_indices:
+        if name in to_plot:
+            results = pd.DataFrame(index=index)
+            results['Indice Values'] = np.concatenate(result_indices[name])
+            results.reset_index(inplace=True)
+            quantiles = results.groupby(['Correlation', 'Variables']).quantile(alpha).drop('Bootstrap', axis=1)
+            means = results.groupby(['Correlation', 'Variables']).mean().drop('Bootstrap', axis=1)
+            quantiles.reset_index(inplace=True)
+            means.reset_index(inplace=True)
+
+            for i, var in enumerate(columns):
+                df_quant = quantiles[quantiles['Variables'] == var]['Indice Values']
+                df_means = means[means['Variables'] == var]['Indice Values']
+                quant_up = df_quant.values[1::2]
+                quant_down = df_quant.values[::2]
+                ax.plot(corrs, df_means.values, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
+                ax.fill_between(corrs, quant_down, quant_up, interpolate=True, alpha=.5, color=colors[var])
+
+    ax.set_ylim(0., 1.)
+    ax.set_xlim([-1., 1.])
+
+    patches = []
+    for var in colors: 
+        patches.append(mpatches.Patch(color=colors[var], label=var))
+
+    for name in markers:
+        if name in to_plot:
+            patches.append(mlines.Line2D([], [], color='k', marker=markers[name], label=name, linewidth=linewidth, markersize=markersize))
+
+    ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
+    ax.set_xlabel('Correlation')
+    ax.set_ylabel('Indices')
+
+    return ax

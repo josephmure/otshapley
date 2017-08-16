@@ -231,6 +231,17 @@ class SensitivityResults(object):
             return self._total_indices
 
     @property
+    def full_shapley_indices(self):
+        """
+        """
+        if np.isnan(self._shapley_indices).all():
+            raise ValueError('The value is not registered')
+        if self.n_realization == 1:
+            return self._shapley_indices[:, :, 0]
+        else:
+            return self._shapley_indices
+
+    @property
     def full_df_first_indices(self):
         """
         """
