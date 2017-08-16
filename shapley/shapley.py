@@ -160,7 +160,7 @@ class ShapleyIndices(Base):
             variance[i] = var_y
 
             # Conditional variances
-            output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]
+            output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]   ## same boot for all Ni,No?
             output_sample_2 = output_sample_2[:, :, boot_No_idx]
             c_var = output_sample_2.var(axis=3, ddof=1)
 
@@ -184,7 +184,7 @@ class ShapleyIndices(Base):
         N = n_perms / dim if estimation_method == 'exact' else n_sob
 
         shapley_indices = shapley_indices / n_perms / variance.reshape(1, n_boot, n_realization)
-        total_indices = total_indices / N / variance.reshape(1, n_boot, n_realization)
+        total_indices = total_indices / N / variance.reshape(1, n_boot, n_realization)				## not the same N for first and total order
         first_indices = 1. - first_indices / N / variance.reshape(1, n_boot, n_realization)
         
         shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
