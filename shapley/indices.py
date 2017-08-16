@@ -34,7 +34,7 @@ class Indices(Base):
         if n_realization == 1:
             output_sample_1 = model(input_sample_1)
             output_sample_2 = model(input_sample_2)
-            output_sample_1 = np.c_[[output_sample_1]*dim].reshape(dim, n_sample, n_realization)
+            output_sample_1 = np.c_[[output_sample_1]*dim].reshape(dim, n_sample, n_realization)   ## ? *dim
             output_sample_2 = np.c_[[output_sample_2]*dim].reshape(dim, n_sample, n_realization)
         else:
             output_sample_1 = np.zeros((dim, n_sample, n_realization))
@@ -49,7 +49,7 @@ class Indices(Base):
             if n_realization == 1:
                 all_output_sample_2t[i] = model(X2t).reshape(n_sample, n_realization)
             else:
-                output_sample_i = model(np.r_[X1, X2, X2t], n_realization)
+                output_sample_i = model(np.r_[X1, X2, X2t], n_realization)          ##model : function two parameters?
                 output_sample_1[i] = output_sample_i[:n_sample, :]
                 output_sample_2[i] = output_sample_i[n_sample:2*n_sample, :]
                 all_output_sample_2t[i] = output_sample_i[2*n_sample:, :]
@@ -61,7 +61,7 @@ class Indices(Base):
         self.n_realization = n_realization
     
     def build_uncorrelated_mc_sample(self, model, n_sample, n_realization):
-        """
+        """         ## add some comment here too
         """
         dim = self.dim
 
@@ -155,7 +155,7 @@ class Indices(Base):
         total_indices = np.zeros((dim, n_boot, n_realization))
 
         if indice_type in ['classic', 'full']:
-            dev = 0
+            dev = 0                                             ## dev if for what?
             sample_Y2t = self.all_output_sample_2t
         elif indice_type == 'ind':
             dev = 1

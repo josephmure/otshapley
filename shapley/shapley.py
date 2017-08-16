@@ -61,16 +61,16 @@ class ShapleyIndices(Base):
     def __init__(self, input_distribution):
         Base.__init__(self, input_distribution)
 
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3):
+    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3): 			## n_perms = 3, dim! par défaut plutôt
         """
         """
         return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
 
     def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
-        """
+        """															 	## add description of the parameters
         """
         dim = self.dim
-        if n_perms is None or n_perms > np.math.factorial(dim):
+        if n_perms is None or n_perms > np.math.factorial(dim):			## nperms > dim! ?
             estimation_method = 'exact'
             perms = list(ot.KPermutations(dim, dim).generate())
             n_perms = len(perms)
@@ -84,7 +84,7 @@ class ShapleyIndices(Base):
         input_sample_1 = np.asarray(self.input_distribution.getSample(Nv))
         
         input_sample_2 = np.zeros((n_perms * (dim - 1) * No * Ni, dim))
-        input_sample_3 = np.zeros((n_perms, dim - 1, No, Ni, dim))
+        input_sample_3 = np.zeros((n_perms, dim - 1, No, Ni, dim))						## useless ?
 
         covariance = np.asarray(self.input_distribution.getCovariance())
         mean = np.asarray(self.input_distribution.getMean())
@@ -111,10 +111,10 @@ class ShapleyIndices(Base):
         if n_realization == 1:
             output_sample = model(X)
         else:
-            output_sample = model(X, n_realization)
+            output_sample = model(X, n_realization)					## model :  function with two parameters?
 
         self.output_sample_1 = output_sample[:Nv]
-        self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization))
+        self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization)) ## n_realization aux mêmes pts X ?
         self.perms = perms
         self.estimation_method = estimation_method
         self.Nv = Nv
