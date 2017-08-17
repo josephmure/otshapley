@@ -373,7 +373,7 @@ class ProbabilisticModel(Model):			## add some comments in this class
     def margins(self):
         """The problem margins.
         """
-        return selt._margins
+        return self._margins
 
     @margins.setter
     def margins(self, margins):

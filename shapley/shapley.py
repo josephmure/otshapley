@@ -7,55 +7,121 @@ from .base import Base
 from .kriging import KrigingIndices
 from .base import SensitivityResults
 
+
+
+def condMVN_new(cov, dependent_ind, given_ind, X_given):
+    """ Returns conditional mean and variance of X[dependent.ind] | X[given.ind] = X.given
+    where X is multivariateNormal(mean = mean, covariance = cov)"""
+    
+    cov = np.asarray(cov)
+    
+    B = cov[:, dependent_ind]
+    B = B[dependent_ind]
+    
+    C = cov[:, dependent_ind]
+    C = C[given_ind]
+    
+    D = cov[:, given_ind]
+    D = D[given_ind]
+    
+    CDinv = np.dot(np.transpose(C), np.linalg.inv(D))
+    
+    condMean = np.dot(CDinv, X_given)
+    condVar = B - np.dot(CDinv, C)
+    condVar = ot.CovarianceMatrix(condVar)
+    
+    return condMean, condVar
+
+
+
 def condMVN(mean, cov, dependent_ind, given_ind, X_given):
     """ Returns conditional mean and variance of X[dependent.ind] | X[given.ind] = X.given
     where X is multivariateNormal(mean = mean, covariance = cov)"""
     
     cov = np.array(cov)
     
-    B = cov.take(dependent_ind, axis=1)
+    B = cov[:, dependent_ind]
     B = B[dependent_ind]
     
-    C = cov.take(dependent_ind, axis=1)
+    C = cov[:, dependent_ind]
     C = C[given_ind]
     
-    D = cov.take(given_ind, axis=1)
+    D = cov[:, given_ind]
     D = D[given_ind]
     
     CDinv = np.dot(np.transpose(C), np.linalg.inv(D))
     
-    condMean = mean[dependent_ind] + np.dot(CDinv,(X_given - mean[given_ind]))
+    condMean = mean[dependent_ind] + np.dot(CDinv, (X_given - mean[given_ind]))
     condVar = B - np.dot(CDinv, C)
     condVar = ot.CovarianceMatrix(condVar)
     
     return condMean, condVar
 
-def r_condMVN(n, mean, cov, dependent_ind, given_ind, X_given):
-    """ Function to simulate conditional gaussian distribution of X[dependent.ind] | X[given.ind] = X.given
-    where X is multivariateNormal(mean = mean, covariance = cov)"""
+
+def cond_sampling_new(distribution, n_sample, idx, idx_c, x_cond):
+    """
+    """
+    margins_dep = [distribution.getMarginal(i) for i in idx]
+    margins_cond = [distribution.getMarginal(i) for i in idx_c]
+
+    # Creates a conditioned variables that follows a Normal distribution
+    u_cond = np.zeros(x_cond.shape)
+    for i, marginal in enumerate(margins_cond):
+        u_cond[i] = np.asarray(ot.Normal().computeQuantile(marginal.computeCDF(x_cond[i])))
+
+    sigma = np.asarray(distribution.getCopula().getCovariance())
+    cond_mean, cond_var = condMVN_new(sigma, idx, idx_c, u_cond)
     
-    ## Modifier pour executer avec une copule
+    n_dep = len(idx)
+    n_cond = len(idx_c)
+    dist_cond = ot.Normal(cond_mean, cond_var)
+    sample_norm = np.asarray(dist_cond.getSample(n_sample))
+    sample_x = np.zeros((n_sample, n_dep))
+    phi = lambda x: ot.Normal().computeCDF(x)
+    for i in range(n_dep):
+        u_i = np.asarray(phi(sample_norm[:, i].reshape(-1, 1))).ravel()
+        sample_x[:, i] = np.asarray(margins_dep[i].computeQuantile(u_i)).ravel()
 
-    cond_mean, cond_var = condMVN(mean, cov, dependent_ind, given_ind, X_given)
-    distribution = ot.Normal(cond_mean, cond_var)
-    return distribution.getSample(n)
+    return sample_x
 
-def cond_sampling(dist, n_sample, idx, idx_c, x_cond):
+
+def cond_sampling(distribution, n_sample, idx, idx_c, x_cond):
     """
     """
-    covariance = np.asarray(dist.getCovariance())
-    mean = np.asarray(dist.getMean())
-    return r_condMVN(n_sample, mean=mean, cov=covariance, dependent_ind=idx, given_ind=idx_c, X_given=x_cond)
+    cov = np.asarray(distribution.getCovariance())
+    mean = np.asarray(distribution.getMean())
+    cond_mean, cond_var = condMVN(mean, cov, idx, idx_c, x_cond)
+    dist_cond = ot.Normal(cond_mean, cond_var)
+    sample = dist_cond.getSample(n_sample)
+    return sample
 
-def sub_sampling(dist, n_sample, idx):
-    """Sampling of a given set
+def sub_sampling(distribution, n_sample, idx):
+    """Sampling from a subset of a given distribution.
+
+    The function takes the margin and correlation matrix subset and creates a new copula
+    and distribution function to sample.
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+    sample : array,
+        The sample of the subset distribution.
     """
-    covariance = np.asarray(dist.getCovariance())
-    mean = np.asarray(dist.getMean())
-    cov_sub = covariance.take(idx, axis=1)[idx, :]
-    dist_sub = ot.Normal(mean[idx], ot.CovarianceMatrix(cov_sub))
+    # Margins of the subset
+    margins_sub = [distribution.getMarginal(i) for i in idx]
+    # Get the correlation matrix
+    sigma = np.asarray(distribution.getCopula().getCorrelation())
+    # Takes only the subset of the correlation matrix
+    copula_sub = ot.NormalCopula(ot.CorrelationMatrix(sigma[:, idx][idx, :]))
+    # Creates the subset distribution
+    dist_sub = ot.ComposedDistribution(margins_sub, copula_sub)
+    # Sample
     sample = np.asarray(dist_sub.getSample(n_sample))
     return sample
+
 
 class ShapleyIndices(Base):
     """Shappley indices object estimator.
@@ -69,7 +135,7 @@ class ShapleyIndices(Base):
         return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
 
     def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
-        """															 	## add description of the parameters
+        """
         """
         dim = self.dim
         if n_perms is None:
@@ -97,6 +163,7 @@ class ShapleyIndices(Base):
                 # Complementary set
                 idx_j_c = perm[j + 1:]
                 sample_j_c = sub_sampling(self.input_distribution, No, idx_j_c)
+                self.sample_j_c = sample_j_c
                 for l, xjc in enumerate(sample_j_c):
                     # Sampling of the set conditionally to the complementary
                     # element
@@ -123,9 +190,8 @@ class ShapleyIndices(Base):
         self.n_realization = n_realization
 
     def compute_indices(self, n_boot):
-        """												## add comment 
         """
-
+        """
         dim = self.dim
         Nv = self.Nv
         No = self.No
@@ -139,16 +205,17 @@ class ShapleyIndices(Base):
         shapley_indices = np.zeros((dim, n_boot, n_realization))
         first_indices = np.zeros((dim, n_boot, n_realization))
         total_indices = np.zeros((dim, n_boot, n_realization))
-        n_first = np.zeros((dim, n_boot, n_realization))						
-        n_total = np.zeros((dim, n_boot, n_realization))				
-        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))				
+        n_first = np.zeros((dim, n_boot, n_realization))
+        n_total = np.zeros((dim, n_boot, n_realization))
+        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
         
         # TODO: ugly... Do it better
         variance = np.zeros((n_boot, n_realization))
 
         for i in range(n_boot):
             # Bootstrap sample indexes
-            if n_boot > 1:
+            # The first iteration is computed over the all sample.
+            if i > 1:
                 boot_var_idx = np.random.randint(0, Nv, size=(Nv, ))
                 boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, ))
                 boot_No_idx = np.random.randint(0, No, size=(No, ))
@@ -180,18 +247,21 @@ class ShapleyIndices(Base):
         
         # Estimate Shapley, main and total Sobol effects
         for i_p, perm in enumerate(perms):
-            shapley_indices[perm] += delta_c[i_p] # Shapley effect
-            total_indices[perm[0]] += c_hat[i_p, 0] # Total effect
-            first_indices[perm[-1]] += c_hat[i_p, -2] # first order effect
-            n_first[perm[-1]] += 1
+            # Shapley effect
+            shapley_indices[perm] += delta_c[i_p] 
+            # Total effect
+            total_indices[perm[0]] += c_hat[i_p, 0] 
             n_total[perm[0]] += 1
+            # First order effect
+            first_indices[perm[-1]] += c_hat[i_p, -2] 
+            n_first[perm[-1]] += 1
 
         shapley_indices = shapley_indices / n_perms / variance.reshape(1, n_boot, n_realization)
+
+        N_first = n_perms / dim if estimation_method == 'exact' else n_first
+        N_total = n_perms / dim if estimation_method == 'exact' else n_total
         
- 		N_first = n_perms / dim if estimation_method == 'exact' else n_first
- 		N_total = n_perms / dim if estimation_method == 'exact' else n_total
-        
-        total_indices = total_indices / N_first / variance.reshape(1, n_boot, n_realization)				## not the same N for first and total order
+        total_indices = total_indices / N_first / variance.reshape(1, n_boot, n_realization)
         first_indices = 1. - first_indices / N_total / variance.reshape(1, n_boot, n_realization)
         
         shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
