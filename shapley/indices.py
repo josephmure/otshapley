@@ -79,7 +79,7 @@ class Indices(Base):
         
         for i in range(dim):
             # Copy of the input dstribution
-            margins = [ot.Distribution(self._input_distribution.getMarginal(i)) for i in range(dim)]
+            margins = [ot.Distribution(self._input_distribution.getMarginal(j)) for j in range(dim)]
             copula = ot.Copula(self._input_distribution.getCopula())
 
             # 1) Pick and Freeze
@@ -155,7 +155,7 @@ class Indices(Base):
         total_indices = np.zeros((dim, n_boot, n_realization))
 
         if indice_type in ['classic', 'full']:
-            dev = 0                                             ## dev if for what?
+            dev = 0
             sample_Y2t = self.all_output_sample_2t
         elif indice_type == 'ind':
             dev = 1
