@@ -33,7 +33,6 @@ def condMVN_new(cov, dependent_ind, given_ind, X_given):
     return condMean, condVar
 
 
-
 def condMVN(mean, cov, dependent_ind, given_ind, X_given):
     """ Returns conditional mean and variance of X[dependent.ind] | X[given.ind] = X.given
     where X is multivariateNormal(mean = mean, covariance = cov)"""
@@ -94,6 +93,7 @@ def cond_sampling(distribution, n_sample, idx, idx_c, x_cond):
     dist_cond = ot.Normal(cond_mean, cond_var)
     sample = dist_cond.getSample(n_sample)
     return sample
+
 
 def sub_sampling(distribution, n_sample, idx):
     """Sampling from a subset of a given distribution.
