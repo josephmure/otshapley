@@ -34,6 +34,8 @@ def r_condMVN(n, mean, cov, dependent_ind, given_ind, X_given):
     """ Function to simulate conditional gaussian distribution of X[dependent.ind] | X[given.ind] = X.given
     where X is multivariateNormal(mean = mean, covariance = cov)"""
     
+    ## Modifier pour executer avec une copule
+
     cond_mean, cond_var = condMVN(mean, cov, dependent_ind, given_ind, X_given)
     distribution = ot.Normal(cond_mean, cond_var)
     return distribution.getSample(n)
@@ -61,7 +63,7 @@ class ShapleyIndices(Base):
     def __init__(self, input_distribution):
         Base.__init__(self, input_distribution)
 
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3): 			## n_perms = 3, dim! par défaut plutôt
+    def build_mc_sample(self, model, n_perms=None, Nv=10000, No=1000, Ni=3):
         """
         """
         return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
@@ -70,7 +72,7 @@ class ShapleyIndices(Base):
         """															 	## add description of the parameters
         """
         dim = self.dim
-        if n_perms is None or n_perms > np.math.factorial(dim):			## nperms > dim! ?
+        if n_perms is None:
             estimation_method = 'exact'
             perms = list(ot.KPermutations(dim, dim).generate())
             n_perms = len(perms)
@@ -82,12 +84,11 @@ class ShapleyIndices(Base):
         
         # Creation of the design matrix
         input_sample_1 = np.asarray(self.input_distribution.getSample(Nv))
-        
         input_sample_2 = np.zeros((n_perms * (dim - 1) * No * Ni, dim))
-        input_sample_3 = np.zeros((n_perms, dim - 1, No, Ni, dim))						## useless ?
 
         covariance = np.asarray(self.input_distribution.getCovariance())
         mean = np.asarray(self.input_distribution.getMean())
+
         for i_p, perm in enumerate(perms):
             idx_perm_sorted = np.argsort(perm)  # Sort the variable ids
             for j in range(dim - 1):
@@ -103,7 +104,6 @@ class ShapleyIndices(Base):
                     xx = np.c_[xj, [xjc] * Ni]
                     ind_inner = i_p * (dim - 1) * No * Ni + j * No * Ni + l * Ni
                     input_sample_2[ind_inner:ind_inner + Ni, :] = xx[:, idx_perm_sorted]
-                    input_sample_3[i_p, j, l] = xx[:, idx_perm_sorted]
 
         # Model evaluation
         X = np.r_[input_sample_1, input_sample_2]
@@ -111,10 +111,10 @@ class ShapleyIndices(Base):
         if n_realization == 1:
             output_sample = model(X)
         else:
-            output_sample = model(X, n_realization)					## model :  function with two parameters?
+            output_sample = model(X, n_realization)
 
         self.output_sample_1 = output_sample[:Nv]
-        self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization)) ## n_realization aux mêmes pts X ?
+        self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization))
         self.perms = perms
         self.estimation_method = estimation_method
         self.Nv = Nv
@@ -123,8 +123,9 @@ class ShapleyIndices(Base):
         self.n_realization = n_realization
 
     def compute_indices(self, n_boot):
+        """												## add comment 
         """
-        """
+
         dim = self.dim
         Nv = self.Nv
         No = self.No
@@ -138,11 +139,12 @@ class ShapleyIndices(Base):
         shapley_indices = np.zeros((dim, n_boot, n_realization))
         first_indices = np.zeros((dim, n_boot, n_realization))
         total_indices = np.zeros((dim, n_boot, n_realization))
-        n_sob = np.zeros((dim, n_boot, n_realization))
-        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
+        n_first = np.zeros((dim, n_boot, n_realization))						
+        n_total = np.zeros((dim, n_boot, n_realization))				
+        c_hat = np.zeros((n_perms, dim, n_boot, n_realization))				
         
         # TODO: ugly... Do it better
-        variance = np.zeros((n_boot, ))
+        variance = np.zeros((n_boot, n_realization))
 
         for i in range(n_boot):
             # Bootstrap sample indexes
@@ -157,11 +159,13 @@ class ShapleyIndices(Base):
                 
             # Output variance
             var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
+
             variance[i] = var_y
 
             # Conditional variances
-            output_sample_2 = self.output_sample_2[:, :, :, boot_Ni_idx]   ## same boot for all Ni,No?
-            output_sample_2 = output_sample_2[:, :, boot_No_idx]
+            output_sample_2 = self.output_sample_2[:, :, boot_No_idx]
+            output_sample_2 = output_sample_2[:, :, :, boot_Ni_idx]
+            
             c_var = output_sample_2.var(axis=3, ddof=1)
 
             # Conditional exceptations
@@ -179,13 +183,16 @@ class ShapleyIndices(Base):
             shapley_indices[perm] += delta_c[i_p] # Shapley effect
             total_indices[perm[0]] += c_hat[i_p, 0] # Total effect
             first_indices[perm[-1]] += c_hat[i_p, -2] # first order effect
-            n_sob[perm] += 1
-
-        N = n_perms / dim if estimation_method == 'exact' else n_sob
+            n_first[perm[-1]] += 1
+            n_total[perm[0]] += 1
 
         shapley_indices = shapley_indices / n_perms / variance.reshape(1, n_boot, n_realization)
-        total_indices = total_indices / N / variance.reshape(1, n_boot, n_realization)				## not the same N for first and total order
-        first_indices = 1. - first_indices / N / variance.reshape(1, n_boot, n_realization)
+        
+ 		N_first = n_perms / dim if estimation_method == 'exact' else n_first
+ 		N_total = n_perms / dim if estimation_method == 'exact' else n_total
+        
+        total_indices = total_indices / N_first / variance.reshape(1, n_boot, n_realization)				## not the same N for first and total order
+        first_indices = 1. - first_indices / N_total / variance.reshape(1, n_boot, n_realization)
         
         shapley_indices = shapley_indices.reshape(dim, n_boot, n_realization)
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
