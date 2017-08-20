@@ -60,21 +60,21 @@ def condMVN(mean, cov, dependent_ind, given_ind, X_given):
 def cond_sampling_new(distribution, n_sample, idx, idx_c, x_cond):
     """
     """
-    margins_dep = [distribution.getMarginal(i) for i in idx]
-    margins_cond = [distribution.getMarginal(i) for i in idx_c]
+    margins_dep = [distribution.getMarginal(int(i)) for i in idx]
+    margins_cond = [distribution.getMarginal(int(i)) for i in idx_c]
 
     # Creates a conditioned variables that follows a Normal distribution
     u_cond = np.zeros(x_cond.shape)
     for i, marginal in enumerate(margins_cond):
         u_cond[i] = np.asarray(ot.Normal().computeQuantile(marginal.computeCDF(x_cond[i])))
 
-    sigma = np.asarray(distribution.getCopula().getCovariance())
+    sigma = np.asarray(distribution.getCopula().getCorrelation())
     cond_mean, cond_var = condMVN_new(sigma, idx, idx_c, u_cond)
     
     n_dep = len(idx)
     n_cond = len(idx_c)
     dist_cond = ot.Normal(cond_mean, cond_var)
-    sample_norm = np.asarray(dist_cond.getSample(n_sample))
+    sample_norm = np.asarray(dist_cond.getSample(int(n_sample)))
     sample_x = np.zeros((n_sample, n_dep))
     phi = lambda x: ot.Normal().computeCDF(x)
     for i in range(n_dep):
@@ -111,7 +111,7 @@ def sub_sampling(distribution, n_sample, idx):
         The sample of the subset distribution.
     """
     # Margins of the subset
-    margins_sub = [distribution.getMarginal(i) for i in idx]
+    margins_sub = [distribution.getMarginal(int(j)) for j in idx]
     # Get the correlation matrix
     sigma = np.asarray(distribution.getCopula().getCorrelation())
     # Takes only the subset of the correlation matrix
@@ -167,7 +167,7 @@ class ShapleyIndices(Base):
                 for l, xjc in enumerate(sample_j_c):
                     # Sampling of the set conditionally to the complementary
                     # element
-                    xj = cond_sampling(self.input_distribution, Ni, idx_j, idx_j_c, xjc)
+                    xj = cond_sampling_new(self.input_distribution, Ni, idx_j, idx_j_c, xjc)
                     xx = np.c_[xj, [xjc] * Ni]
                     ind_inner = i_p * (dim - 1) * No * Ni + j * No * Ni + l * Ni
                     input_sample_2[ind_inner:ind_inner + Ni, :] = xx[:, idx_perm_sorted]
@@ -179,6 +179,7 @@ class ShapleyIndices(Base):
             output_sample = model(X)
         else:
             output_sample = model(X, n_realization)
+
 
         self.output_sample_1 = output_sample[:Nv]
         self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization))

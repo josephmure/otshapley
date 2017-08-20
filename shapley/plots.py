@@ -176,7 +176,7 @@ def corrfunc_plot(x, y, **kws):
                 weight='heavy', fontsize=12)
 
 
-def plot_correlation_indices(result_indices, corrs, n_boot, to_plot=['Shapley'], linewidth=1, markersize=10, ax=None, figsize=(9, 5), alpha=[0.05, 0.95]):
+def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, to_plot=['Shapley'], linewidth=1, markersize=10, ax=None, figsize=(9, 5), alpha=[0.05, 0.95], ci='error'):
     """
     """
     if ax is None:
@@ -204,7 +204,9 @@ def plot_correlation_indices(result_indices, corrs, n_boot, to_plot=['Shapley'],
     for name in result_indices:
         if name in to_plot:
             results = pd.DataFrame(index=index)
+            n_corr = len(result_indices[name])
             results['Indice Values'] = np.concatenate(result_indices[name])
+            means_no_boot = results['Indice Values'].values.reshape(n_corr, dim, -1)[:, :, 0]
             results.reset_index(inplace=True)
             quantiles = results.groupby(['Correlation', 'Variables']).quantile(alpha).drop('Bootstrap', axis=1)
             means = results.groupby(['Correlation', 'Variables']).mean().drop('Bootstrap', axis=1)
@@ -216,8 +218,21 @@ def plot_correlation_indices(result_indices, corrs, n_boot, to_plot=['Shapley'],
                 df_means = means[means['Variables'] == var]['Indice Values']
                 quant_up = df_quant.values[1::2]
                 quant_down = df_quant.values[::2]
-                ax.plot(corrs, df_means.values, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
-                ax.fill_between(corrs, quant_down, quant_up, interpolate=True, alpha=.5, color=colors[var])
+                if ci == 'quantile':
+                    mean = df_means.values
+                    ci_up = quant_up
+                    ci_down = quant_down
+                elif ci == 'error':
+                    mean = means_no_boot[:, i]
+                    ci_up = 2*mean - quant_up
+                    ci_down = 2*mean - quant_down
+                else:
+                    raise ValueError('Unknow confidence interval')
+                if true_indices is not None:
+                    if name in true_indices:
+                        mean = np.asarray(true_indices[name])[:, i]
+                ax.plot(corrs, mean, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
+                ax.fill_between(corrs, ci_down, ci_up, interpolate=True, alpha=.5, color=colors[var])
 
     ax.set_ylim(0., 1.)
     ax.set_xlim([-1., 1.])

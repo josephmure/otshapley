@@ -106,6 +106,11 @@ class Indices(Base):
             X_3_i = inv_rosenblatt_transform_i(U_3_i)
             X_4_i = inv_rosenblatt_transform_i(U_4_i)
             assert X_1_i.shape[1] == dim, "Wrong dimension"
+
+            X_1_i = X_1_i[:, order_cop]
+            X_2_i = X_2_i[:, order_cop]
+            X_3_i = X_3_i[:, order_cop]
+            X_4_i = X_4_i[:, order_cop]
             
             # 4) Model evaluations
             X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]
@@ -166,7 +171,9 @@ class Indices(Base):
         boot_idx = None
         for i in range(dim):
             if n_boot > 1:
-                boot_idx = np.random.randint(0, n_sample, size=(n_boot, n_sample))
+                boot_idx = np.zeros((n_boot, n_sample), dtype=int)
+                boot_idx[0] = range(n_sample)
+                boot_idx[1:] = np.random.randint(0, n_sample, size=(n_boot-1, n_sample))
 
             Y1 = self.all_output_sample_1[i]
             Y2 = self.all_output_sample_2[i]

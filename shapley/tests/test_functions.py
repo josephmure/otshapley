@@ -29,7 +29,131 @@ class AdditiveGaussian(ProbabilisticModel):
         ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
         self.beta = beta
 
-        # TODO: adapt the true result 
+    @property
+    def beta(self):
+        """
+        """
+        return self._beta
+
+    @beta.setter
+    def beta(self, beta):
+        if beta is None:
+            beta = np.ones((self.dim, ))
+        else:
+            beta = np.asarray(beta)
+
+        self._beta = beta
+
+    @property
+    def first_order_sobol_indices(self):
+        """
+        """
+        #beta = self.beta
+        #dim = self.dim
+        #sigma = np.asarray(self.input_distribution.getCovariance())
+        #print(sigma)
+        #inv_sigma = np.linalg.inv(sigma)
+        #var_y = (beta.dot(sigma)).dot(beta)
+        #indices = np.zeros((dim,))
+        #for j in range(dim):
+        #    c_j = np.asarray([i for i in range(dim) if i != j])
+        #    inv_j = np.linalg.inv(sigma[c_j, :][:, c_j])
+        #    #inv_j = inv_sigma[:, c_j][c_j, :]
+        #    var_j = (beta.dot(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))).dot(beta)
+        #    var_j = np.sum(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))
+        #    print(var_j)
+        #    indices[j] = var_j / var_y
+    
+        #return indices
+
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        var_y = (beta.dot(sigma)).dot(beta)
+        sigma_x = np.sqrt(sigma.diagonal())
+
+        # Effects without correlation
+        s_uncorr = (beta * sigma_x)**2
+
+        # Effects with correlation
+        theta = np.asarray(self.copula.getParameter())
+        dep_pair = theta != 0
+        rho = theta[dep_pair]
+        if dim == 3 and len(rho) <= 1:
+            rho = rho.item() if len(rho) == 1 else 0
+            s_corr = np.zeros((dim, ))
+            for i, j in [[1, 2], [2, 1]]:
+                s_corr[i] = 2 * rho * beta[i] * beta[j] * sigma_x[i] * sigma_x[j] + rho**2 * s_uncorr[j]
+    
+            indices = (s_uncorr + s_corr)/ var_y
+            return indices 
+
+    @property
+    def total_sobol_indices(self):
+        """
+        """
+        #beta = self.beta
+        #dim = self.dim
+        #sigma = np.asarray(self.input_distribution.getCovariance())
+        #inv_sigma = np.linalg.inv(sigma)
+        #var_y = (beta.dot(sigma)).dot(beta)
+        #indices = np.zeros((dim,))
+        #for j in range(dim):
+        #    c_j = np.asarray([i for i in range(dim) if i != j])
+        #    inv_j = np.linalg.inv(sigma[c_j, :][:, c_j])
+        #    #inv_j = inv_sigma[:, c_j][c_j, :]
+        #    var_j = (beta.dot((sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))).dot(beta)
+        #    indices[j] = var_j / var_y
+    
+        #return indices
+
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        var_y = (beta.dot(sigma)).dot(beta)
+        sigma_x = np.sqrt(sigma.diagonal())
+
+        # Effects without correlation
+        s_uncorr = (beta * sigma_x)**2
+
+        # Effects with correlation
+        theta = np.asarray(self.copula.getParameter())
+        dep_pair = theta != 0
+        rho = theta[dep_pair]
+        if dim == 3 and len(rho) <= 1:
+            rho = rho.item() if len(rho) == 1 else 0
+            s_corr = np.ones((dim, ))
+            for i in [1, 2]:
+                s_corr[i] = (1. - rho**2)
+    
+            indices = (s_uncorr * s_corr)/ var_y
+            return indices 
+
+    @property
+    def shapley_indices(self):
+        """
+        """
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        var_y = (beta.dot(sigma)).dot(beta)
+        sigma_x = np.sqrt(sigma.diagonal())
+
+        # Effects without correlation
+        s_uncorr = (beta * sigma_x)**2
+        
+        # Effects with correlation
+        theta = np.asarray(self.copula.getParameter())
+        dep_pair = theta != 0
+        rho = theta[dep_pair]
+        if dim == 3 and len(rho) <= 1:
+            rho = rho.item() if len(rho) == 1 else 0
+            s_corr = np.zeros((dim, ))
+            for i, j in [[1, 2], [2, 1]]:
+                s_corr[i] = rho * beta[i] * beta[j] * sigma_x[i] * sigma_x[j] + 0.5 * rho**2 * (s_uncorr[j] - s_uncorr[i])
+    
+            indices = (s_uncorr + s_corr)/ var_y
+            return indices 
 
 def additive_func(x, beta=None):
     """
