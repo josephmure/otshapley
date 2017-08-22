@@ -125,7 +125,7 @@ class KrigingModel(ProbabilisticModel):
                 else:
                     print('Sample size is too large. A loop is done to save memory.')
                     state = np.random.randint(0, 1E5)
-                    n_partitions = 50
+                    n_partitions = 100
                     results = []
                     for i_p, X_p in enumerate(np.split(X, n_partitions, axis=0)):
                         results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))

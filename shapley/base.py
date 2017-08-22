@@ -260,6 +260,15 @@ class SensitivityResults(object):
         return df
 
     @property
+    def full_df_shapley_indices(self):
+        """
+        """
+        dim = self.dim
+        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        df = panel_data(self._shapley_indices, columns=columns)
+        return df
+
+    @property
     def df_first_indices(self):
         """
         """
@@ -271,6 +280,13 @@ class SensitivityResults(object):
         """
         """
         df = melt_kriging(self.full_df_total_indices)
+        return df
+
+    @property
+    def df_shapley_indices(self):
+        """
+        """
+        df = melt_kriging(self.full_df_shapley_indices)
         return df
 
     @property
@@ -290,11 +306,11 @@ def melt_kriging(df):
     """
     df_boot = df.mean(level=['Variables', 'Kriging'])
     df_boot_melt = pd.melt(df_boot.T, value_name=VALUE_NAME)
-    df_boot_melt['Error'] = 'Bootstrap'
+    df_boot_melt['Error'] = 'Kriging'
 
     df_kriging = df.mean(level=['Variables', 'Bootstrap'])
     df_kriging_melt = pd.melt(df_kriging.T, value_name=VALUE_NAME)
-    df_kriging_melt['Error'] = 'Kriging'
+    df_kriging_melt['Error'] = 'Bootstrap'
 
     df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
     return df
