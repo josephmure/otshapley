@@ -93,6 +93,12 @@ class AdditiveGaussian(ProbabilisticModel):
         elif dim == 2:
             indices = np.asarray([(1 + 2*theta[0] + theta[0]**2)/var_y]*dim)
             return indices
+        else:
+            return self._first_order_sobol_indices
+
+    @first_order_sobol_indices.setter
+    def first_order_sobol_indices(self, indices):
+        self._first_order_sobol_indices = indices
 
     @property
     def total_sobol_indices(self):
@@ -139,7 +145,12 @@ class AdditiveGaussian(ProbabilisticModel):
         elif dim == 2:
             indices = np.asarray([(1.- theta[0]**2)/var_y]*dim)
             return indices
+        else:
+            return self._total_sobol_indices
 
+    @total_sobol_indices.setter
+    def total_sobol_indices(self, indices):
+        self._total_sobol_indices = indices
 
     @property
     def shapley_indices(self):
@@ -169,6 +180,12 @@ class AdditiveGaussian(ProbabilisticModel):
         elif dim == 2:
             indices = np.asarray([1./dim]*dim)
             return indices
+        else:
+            return self._shapley_indices
+
+    @shapley_indices.setter
+    def shapley_indices(self, indices):
+        self._shapley_indices = indices
 
 def additive_func(x, beta=None):
     """
