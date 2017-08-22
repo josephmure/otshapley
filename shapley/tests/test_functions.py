@@ -18,6 +18,7 @@ class Ishigami(ProbabilisticModel):
         # TODO: adapt the true result for any a and b.
         self._first_order_sobol_indices = [0.314, 0.442, 0.]
         self._total_sobol_indices = [0.56, 0.44, 0.24]
+        self._shapley_indices = (np.asarray(self._first_order_sobol_indices) + np.asarray(self._total_sobol_indices))/2.
 
 class AdditiveGaussian(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function for sensitivity analysis.
@@ -79,14 +80,19 @@ class AdditiveGaussian(ProbabilisticModel):
         theta = np.asarray(self.copula.getParameter())
         dep_pair = theta != 0
         rho = theta[dep_pair]
+        s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
+            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
-            s_corr = np.zeros((dim, ))
-            for i, j in [[1, 2], [2, 1]]:
-                s_corr[i] = 2 * rho * beta[i] * beta[j] * sigma_x[i] * sigma_x[j] + rho**2 * s_uncorr[j]
+            s_corr[0] = 1
+            s_corr[1] = (1 + rho * sigma_x[2])**2
+            s_corr[2] = (rho + sigma_x[2])**2
     
-            indices = (s_uncorr + s_corr)/ var_y
+            indices = (s_corr)/ var_y
             return indices 
+        elif dim == 2:
+            indices = np.asarray([(1 + 2*theta[0] + theta[0]**2)/var_y]*dim)
+            return indices
 
     @property
     def total_sobol_indices(self):
@@ -120,14 +126,20 @@ class AdditiveGaussian(ProbabilisticModel):
         theta = np.asarray(self.copula.getParameter())
         dep_pair = theta != 0
         rho = theta[dep_pair]
+        s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
+            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
-            s_corr = np.ones((dim, ))
-            for i in [1, 2]:
-                s_corr[i] = (1. - rho**2)
+            s_corr[0] = 1
+            s_corr[1] = 1. - rho**2
+            s_corr[2] = sigma_x[2]**2 * ( 1 - rho **2)
     
-            indices = (s_uncorr * s_corr)/ var_y
-            return indices 
+            indices = (s_corr)/ var_y
+            return indices
+        elif dim == 2:
+            indices = np.asarray([(1.- theta[0]**2)/var_y]*dim)
+            return indices
+
 
     @property
     def shapley_indices(self):
@@ -154,6 +166,9 @@ class AdditiveGaussian(ProbabilisticModel):
     
             indices = (s_uncorr + s_corr)/ var_y
             return indices 
+        elif dim == 2:
+            indices = np.asarray([1./dim]*dim)
+            return indices
 
 def additive_func(x, beta=None):
     """

@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 from scipy import stats
-from collections import OrderedDict
 
 def set_style_paper():
     # This sets reasonable defaults for font size for
@@ -110,24 +109,6 @@ def plot_violin(df, with_hue=False, true_indices=None, ax=None, figsize=(8, 4), 
     return ax
 
 
-def plot_violin(df, with_hue=False, true_indices=None, ax=None, figsize=(8, 4), ylim=None, savefig=''):
-    """
-    """
-    if ax is None:
-        fig, ax = plt.subplots(figsize=figsize)
-    if with_hue:
-        sns.violinplot(x='Variables', y='Indice values', data=df, hue='Error', ax=ax, split=True)
-    else:
-        sns.violinplot(x='Variables', y='Indice values', data=df, ax=ax)
-    if true_indices is not None:
-        ax.plot(true_indices, 'yo', markersize=7, label='True indices')
-        ax.legend(loc=0)
-    ax.set_ylim(ylim)
-    if ax is None:
-        fig.tight_layout()
-
-    return ax
-
 def violin_plot_indices(first_indices, true_indices=None, title=None, figsize=(8, 4), xlabel=None, ylim=None, ax=None):
     """
     """
@@ -192,7 +173,7 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
                'First Sobol': '*',
                'Total Sobol': '.',
                'First full Sobol': 8,
-               'Total full Sobol': 9,
+               'Total full Sobol': 11,
                'First ind Sobol': 10,
                'Total ind Sobol': 11,
                }
@@ -248,5 +229,91 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
     ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
     ax.set_xlabel('Correlation')
     ax.set_ylabel('Indices')
+
+    return ax
+
+
+def plot_error(results, x, true_results, ax=None, figsize=(7, 4), ylim=None, alpha=[2.5, 97.5], loc=0, logscale=False, legend=True):
+    """
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    colors = {
+        'Shapley': 'b',
+        'First Sobol': 'r',
+        'Total Sobol': 'g'
+    }
+    
+    ax2 = ax.twinx()
+    lns = []
+    if logscale:
+        ax2.set_yscale('log')
+
+    sorted_x = np.argsort(x)
+    for i, name in enumerate(results):
+        result = results[name]
+        true_indices = true_results[name]
+        dim = true_indices.shape[0]
+        no_boot_estimation = result[:, :, :, 0]
+        quantiles = np.percentile(result[:, :, :, 1:], alpha, axis=3)
+        error_up = 2*no_boot_estimation - quantiles[0]
+        error_down = 2*no_boot_estimation - quantiles[1]
+        cover = ((error_down < true_indices.reshape(1, 1, dim)) & (error_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
+        error = (2*abs(no_boot_estimation - true_indices / (no_boot_estimation + true_indices))).mean(axis=2)
+        error = (abs(no_boot_estimation - true_indices)).mean(axis=2)
+        error_quants = np.percentile(error, [5, 95], axis=1)
+
+        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage %s' % (name), linewidth=2, color=colors[name])
+        lns2 = ax2.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
+        ax2.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
+        ax2.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
+
+        lns.extend(lns1+lns2)
+
+    ax.set_xlabel('$N_i$')
+    ax.set_ylabel('Coverage')
+    ax.set_xlim(x[sorted_x][0], x[sorted_x][-1])
+    ax.set_ylim(ylim)
+
+    ax2.set_ylim(0., 1)
+    labs = [l.get_label() for l in lns]
+    if legend:
+        ax2.legend(lns, labs, loc=loc)
+    ax2.set_ylabel('Absolute Error')
+
+    return ax, ax2
+
+def plot_var(results, x, ax=None, figsize=(7, 4), ylim=None, alpha=[2.5, 97.5], loc=0, logscale=False, legend=True):
+    """
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    colors = {
+        'Shapley': 'b',
+        'First Sobol': 'r',
+        'Total Sobol': 'g'
+    }
+
+    sorted_x = np.argsort(x)
+    if logscale:
+        ax.set_yscale('log')
+    for i, name in enumerate(results):
+        result = results[name]
+        no_boot_estimation = result[:, :, :, 0]
+        mean = result[:, :, :, 1:].mean(axis=3).mean(axis=2)
+        std = result[:, :, :, 1:].std(axis=3).mean(axis=2)
+        cov = abs(std/mean)
+        cov_quants = np.percentile(cov, [5, 95], axis=1)
+        lns1 = ax.plot(x[sorted_x], cov.mean(axis=1)[sorted_x], '-', label='COV %s' % (name), linewidth=2, color=colors[name])
+        ax.fill_between(x[sorted_x], cov.mean(axis=1)[sorted_x], cov_quants[0][sorted_x], alpha=0.3, color=colors[name])
+        ax.fill_between(x[sorted_x], cov.mean(axis=1)[sorted_x], cov_quants[1][sorted_x], alpha=0.3, color=colors[name])
+
+    ax.set_xlabel('$N_i$')
+    ax.set_ylabel('Ceofficient of Variation')
+    ax.set_xlim(x[0], x[-1])
+    ax.set_ylim(ylim)
+    if legend:
+        ax.legend(loc=loc)
 
     return ax

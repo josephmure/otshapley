@@ -1,6 +1,3 @@
-import openturns as ot
-import numpy as np
-
 from .indices import Indices
 from .kriging import KrigingIndices
 
@@ -184,8 +181,6 @@ def sobol2002_estimator(Y1, Y2, Y2t):
 
     var_indiv = s(Y2t * Y1)/(n_sample - 1) - mean2
     var_total = s(Y2t * Y2)/(n_sample - 1) - mean2
-    #var_indiv = m(Y2t * Y1) - mean2
-    #var_total = m(Y2t * Y2) - mean2
     first_indice = var_indiv / var
     total_indice = 1. - var_total  / var
 
@@ -195,12 +190,8 @@ def sobol2002_estimator(Y1, Y2, Y2t):
 def sobol2007_estimator(Y1, Y2, Y2t):
     """
     """
-    n_sample = Y1.shape[1]
-    mean2 = m(Y1*Y2)
     var = v(Y1)
 
-    #var_indiv = s((Y2t - Y2) * Y1)/(n_sample - 1)
-    #var_total = s((Y2t - Y1) * Y2)/(n_sample - 1)
     var_indiv = m((Y2t - Y2) * Y1)
     var_total = m((Y2t - Y1) * Y2)
     first_indice = var_indiv / var
@@ -212,7 +203,6 @@ def sobol2007_estimator(Y1, Y2, Y2t):
 def soboleff1_estimator(Y1, Y2, Y2t):
     """
     """
-    n_sample = Y1.shape[1]
     mean2 = m(Y1) * m(Y2t)
     var = m(Y1**2) - m(Y1)**2
 
@@ -228,7 +218,6 @@ def soboleff1_estimator(Y1, Y2, Y2t):
 def soboleff2_estimator(Y1, Y2, Y2t):
     """
     """
-    n_sample = Y1.shape[1]
     mean2 = m((Y1 + Y2t)/2.)**2
     var = m((Y1**2 + Y2t**2 )/2.) - m((Y1 + Y2t)/2.)**2
 
@@ -244,7 +233,6 @@ def soboleff2_estimator(Y1, Y2, Y2t):
 def sobolmara_estimator(Y1, Y2, Y2t):
     """
     """
-    n_sample = Y1.shape[1]
     diff = Y2t - Y2
     var = v(Y1)
 

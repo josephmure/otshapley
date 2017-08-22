@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 
 def create_df_from_gp_indices(first_indices):

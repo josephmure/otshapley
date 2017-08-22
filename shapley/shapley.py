@@ -1,7 +1,5 @@
 import numpy as np
-import itertools
 import openturns as ot
-import pandas as pd
 
 from .base import Base
 from .kriging import KrigingIndices
@@ -72,7 +70,6 @@ def cond_sampling_new(distribution, n_sample, idx, idx_c, x_cond):
     cond_mean, cond_var = condMVN_new(sigma, idx, idx_c, u_cond)
     
     n_dep = len(idx)
-    n_cond = len(idx_c)
     dist_cond = ot.Normal(cond_mean, cond_var)
     sample_norm = np.asarray(dist_cond.getSample(int(n_sample)))
     sample_x = np.zeros((n_sample, n_dep))
@@ -119,7 +116,7 @@ def sub_sampling(distribution, n_sample, idx):
     # Creates the subset distribution
     dist_sub = ot.ComposedDistribution(margins_sub, copula_sub)
     # Sample
-    sample = np.asarray(dist_sub.getSample(n_sample))
+    sample = np.asarray(dist_sub.getSample(int(n_sample)))
     return sample
 
 
@@ -152,9 +149,6 @@ class ShapleyIndices(Base):
         input_sample_1 = np.asarray(self.input_distribution.getSample(Nv))
         input_sample_2 = np.zeros((n_perms * (dim - 1) * No * Ni, dim))
 
-        covariance = np.asarray(self.input_distribution.getCovariance())
-        mean = np.asarray(self.input_distribution.getMean())
-
         for i_p, perm in enumerate(perms):
             idx_perm_sorted = np.argsort(perm)  # Sort the variable ids
             for j in range(dim - 1):
@@ -175,11 +169,11 @@ class ShapleyIndices(Base):
         # Model evaluation
         X = np.r_[input_sample_1, input_sample_2]
 
+        self.X = X
         if n_realization == 1:
             output_sample = model(X)
         else:
             output_sample = model(X, n_realization)
-
 
         self.output_sample_1 = output_sample[:Nv]
         self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization))
@@ -249,12 +243,12 @@ class ShapleyIndices(Base):
         # Estimate Shapley, main and total Sobol effects
         for i_p, perm in enumerate(perms):
             # Shapley effect
-            shapley_indices[perm] += delta_c[i_p] 
+            shapley_indices[perm] += delta_c[i_p]
             # Total effect
-            total_indices[perm[0]] += c_hat[i_p, 0] 
+            total_indices[perm[0]] += c_hat[i_p, 0]
             n_total[perm[0]] += 1
             # First order effect
-            first_indices[perm[-1]] += c_hat[i_p, -2] 
+            first_indices[perm[-1]] += c_hat[i_p, -2]
             n_first[perm[-1]] += 1
 
         shapley_indices = shapley_indices / n_perms / variance.reshape(1, n_boot, n_realization)
@@ -285,4 +279,4 @@ class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
     def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
         """
         """
-        return self._build_mc_sample(model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10)
+        return self._build_mc_sample(model, n_perms=n_perms, Nv=Nv, No=No, Ni=Ni, n_realization=n_realization)

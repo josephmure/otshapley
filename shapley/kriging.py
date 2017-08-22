@@ -4,6 +4,7 @@ import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from .base import Base, ProbabilisticModel, SensitivityResults
 
+MAX_N_SAMPLE = 5000
 
 class KrigingIndices(Base):
     """Estimate indices using a kriging based metamodel.
@@ -114,13 +115,27 @@ class KrigingModel(ProbabilisticModel):
             kriging_result = GaussianProcessRegressor(kernel=self.covariance)
             kriging_result.fit(self.input_sample, self.output_sample)
             self.kriging_result = kriging_result
+
             def meta_model(X, n_realization=1):
-                return kriging_result.sample_y(X, n_samples=n_realization)
+                """
+                """
+                n_sample = X.shape[0]
+                if n_sample < MAX_N_SAMPLE:
+                    results = kriging_result.sample_y(X, n_samples=n_realization)
+                else:
+                    print('Sample size is too large. A loop is done to save memory.')
+                    state = np.random.randint(0, 1E5)
+                    n_partitions = 50
+                    results = []
+                    for i_p, X_p in enumerate(np.split(X, n_partitions, axis=0)):
+                        results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))
+                    results = np.concatenate(results)
+                return results
             predict = kriging_result.predict
         else:
             raise ValueError('Unknow library {0}'.format(library))
 
-        self.predict = predict                                                             ## difference between predict and metamodel
+        self.predict = predict
         self.model_func = meta_model
 
     def __call__(self, X, n_realization=1):
