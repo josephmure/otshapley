@@ -212,12 +212,10 @@ class ShapleyIndices(Base):
             # The first iteration is computed over the all sample.
             if i > 1:
                 boot_var_idx = np.random.randint(0, Nv, size=(Nv, ))
-                boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, ))
                 boot_No_idx = np.random.randint(0, No, size=(No, ))
             else:
-                boot_var_idx = range(0, Nv)
-                boot_Ni_idx = range(0, Ni)
-                boot_No_idx = range(0, No)
+                boot_var_idx = range(Nv)
+                boot_No_idx = range(No)
                 
             # Output variance
             var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
@@ -226,7 +224,6 @@ class ShapleyIndices(Base):
 
             # Conditional variances
             output_sample_2 = self.output_sample_2[:, :, boot_No_idx]
-            output_sample_2 = output_sample_2[:, :, :, boot_Ni_idx]
             
             c_var = output_sample_2.var(axis=3, ddof=1)
 

@@ -81,6 +81,7 @@ class SensitivityResults(object):
         self.dim = None
         self.n_boot = None
         self.n_realization = None
+        self._var_names = None
         self.first_indices = first_indices
         self.total_indices = total_indices
         self.shapley_indices = shapley_indices
@@ -88,6 +89,21 @@ class SensitivityResults(object):
         self.true_total_indices = true_total_indices
         self.true_shapley_indices = true_shapley_indices
         self.calculation_method = calculation_method
+
+    @property
+    def var_names(self):
+        """
+        """
+        if self._var_names is None:
+            dim = self.dim
+            columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+            return columns
+        else:
+            return self._var_names
+
+    @var_names.setter
+    def var_names(self, names):
+        self._var_names = names
 
     @property
     def true_indices(self):					## Is it really used?
@@ -102,7 +118,7 @@ class SensitivityResults(object):
             data['True shapley'] = self.true_shapley_indices
             
         if data != {}:
-            data['Variables'] = ['$X_%d$' % (i+1) for i in range(self.dim)]
+            data['Variables'] = ['$X_{%d}$' % (i+1) for i in range(self.dim)]
             df = pd.DataFrame(data)
             indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
             return indices
@@ -172,7 +188,7 @@ class SensitivityResults(object):
         n_boot = self.n_boot
         n_realization = self.n_realization
         feat_indices = 'Indices'
-        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         all_df = []
         if self._first_indices is not None:
             df_first = panel_data(self._first_indices, columns=columns)
@@ -199,7 +215,7 @@ class SensitivityResults(object):
         """
         """
         dim = self.dim
-        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         df_first = panel_data(self._first_indices, columns=columns)
         df_total = panel_data(self._total_indices, columns=columns)
         df_first['Indices'] = 'First'
@@ -246,7 +262,7 @@ class SensitivityResults(object):
         """
         """
         dim = self.dim
-        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         df = panel_data(self._first_indices, columns=columns)
         return df
 
@@ -255,7 +271,7 @@ class SensitivityResults(object):
         """
         """
         dim = self.dim
-        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         df = panel_data(self._total_indices, columns=columns)
         return df
 
@@ -264,7 +280,7 @@ class SensitivityResults(object):
         """
         """
         dim = self.dim
-        columns = ['$X_%d$' % (i+1) for i in range(dim)]
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         df = panel_data(self._shapley_indices, columns=columns)
         return df
 
@@ -493,7 +509,7 @@ class ProbabilisticModel(Model):			## add some comments in this class
         """
         df = pd.DataFrame({'True first': self.first_order_sobol_indices,
                   'True total': self.total_sobol_indices,
-                  'Variables': ['$X_%d$' % (i+1) for i in range(self._dim)]})
+                  'Variables': ['$X_{%d}$' % (i+1) for i in range(self._dim)]})
         true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
         
         return true_indices
@@ -505,7 +521,7 @@ class ProbabilisticModel(Model):			## add some comments in this class
         df = pd.DataFrame({'True first': self.first_order_sobol_indices,
                   'True total': self.total_sobol_indices,
                   'True shapley': self.shapley_indices,
-                  'Variables': ['$X_%d$' % (i+1) for i in range(self._dim)]})
+                  'Variables': ['$X_{%d}$' % (i+1) for i in range(self._dim)]})
         indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
         
         return indices

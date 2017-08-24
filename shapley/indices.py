@@ -77,6 +77,7 @@ class Indices(Base):
         all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
         all_output_sample_2t1 = np.zeros((dim, n_sample, n_realization))
         
+        n_pairs = int(dim*(dim-1) / 2)
         for i in range(dim):
             # Copy of the input dstribution
             margins = [ot.Distribution(self._input_distribution.getMarginal(j)) for j in range(dim)]
@@ -90,7 +91,8 @@ class Indices(Base):
             
             # 2) Permute the margins and the copula
             order_i = np.roll(range(dim), -i)
-            order_cop = np.roll(range(dim), i)
+            order_i_inv = np.roll(range(dim), i)
+            order_cop = np.roll(range(n_pairs), i)
             margins_i = [margins[j] for j in order_i]
             params_i = np.asarray(copula.getParameter())[order_cop]
 
@@ -107,10 +109,10 @@ class Indices(Base):
             X_4_i = inv_rosenblatt_transform_i(U_4_i)
             assert X_1_i.shape[1] == dim, "Wrong dimension"
 
-            X_1_i = X_1_i[:, order_cop]
-            X_2_i = X_2_i[:, order_cop]
-            X_3_i = X_3_i[:, order_cop]
-            X_4_i = X_4_i[:, order_cop]
+            X_1_i = X_1_i[:, order_i_inv]
+            X_2_i = X_2_i[:, order_i_inv]
+            X_3_i = X_3_i[:, order_i_inv]
+            X_4_i = X_4_i[:, order_i_inv]
             
             # 4) Model evaluations
             X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]

@@ -4,7 +4,7 @@ import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from .base import Base, ProbabilisticModel, SensitivityResults
 
-MAX_N_SAMPLE = 5000
+MAX_N_SAMPLE = 2000
 
 class KrigingIndices(Base):
     """Estimate indices using a kriging based metamodel.
@@ -100,9 +100,24 @@ class KrigingModel(ProbabilisticModel):
 
             # The resulting meta_model function
             def meta_model(X, n_realization=1):
-                kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
-                output = np.asarray(kriging_vector.getSample(n_realization)).T
-                return output
+                n_sample = X.shape[0]
+                if n_sample < MAX_N_SAMPLE:
+                    results = np.asarray(kriging_vector.getSample(n_realization)).T
+                else:
+                    state = np.random.randint(0, 1E7)
+                    for max_n in range(MAX_N_SAMPLE, 1, -1):
+                        if n_sample % max_n == 0:
+                            print(max_n)
+                            break
+                    results = []
+                    for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
+                        ot.RandomGenerator.SetSeed(state)
+                        kriging_vector = ot.KrigingRandomVector(self.kriging_result, X_p)
+                        results.append(np.asarray(kriging_vector.getSample(n_realization)).T)
+                        print('i_p:', i_p)
+                    results = np.concatenate(results)
+                return results
+                
             
             def predict(X):
                 """Predict the kriging model in a deterministic way.
@@ -124,11 +139,16 @@ class KrigingModel(ProbabilisticModel):
                     results = kriging_result.sample_y(X, n_samples=n_realization)
                 else:
                     print('Sample size is too large. A loop is done to save memory.')
-                    state = np.random.randint(0, 1E5)
-                    n_partitions = 100
+                    state = np.random.randint(0, 1E7)
+                    
+                    for max_n in range(MAX_N_SAMPLE, 1, -1):
+                        if n_sample % max_n == 0:
+                            print(max_n)
+                            break
                     results = []
-                    for i_p, X_p in enumerate(np.split(X, n_partitions, axis=0)):
+                    for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
                         results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))
+                        print('i_p:', i_p)
                     results = np.concatenate(results)
                 return results
             predict = kriging_result.predict
@@ -257,7 +277,7 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
             meta_model_mean = kriging_algo.getResult().getMetaModel()
         elif library == 'sklearn':
             kriging_result = GaussianProcessRegressor(kernel=covariance)
-            kriging_result.fit(input_sample_i, output_sample_i)
+            kriging_result.fit(input_sample_i, output_sample_i.ravel())
             meta_model_mean = kriging_result.predict
         else:
             raise ValueError('Unknow library {0}'.format(library))
@@ -265,7 +285,8 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
         ypred[i] = np.asarray(meta_model_mean(xi.reshape(1, -1)))
         
     ytrue = output_sample.squeeze()
-    q2 = max(0., test_q2(ytrue, ypred))
+
+    q2 = test_q2(ytrue, ypred)
     
     return q2
 

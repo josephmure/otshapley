@@ -82,7 +82,6 @@ class AdditiveGaussian(ProbabilisticModel):
         rho = theta[dep_pair]
         s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
-            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
             s_corr[0] = 1
             s_corr[1] = (1 + rho * sigma_x[2])**2
@@ -134,7 +133,6 @@ class AdditiveGaussian(ProbabilisticModel):
         rho = theta[dep_pair]
         s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
-            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
             s_corr[0] = 1
             s_corr[1] = 1. - rho**2
