@@ -55,8 +55,7 @@ class KrigingModel(MetaModel):
         The input distribution for the sampling of the observations.
     """
     def __init__(self, model, input_distribution):
-        self.true_model = model
-        MetaModel.__init__(self, model_func=None, input_distribution=input_distribution)
+        MetaModel.__init__(self, model=model, input_distribution=input_distribution)
 
         self._basis = None
         self._covariance = None
