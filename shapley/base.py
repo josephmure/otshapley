@@ -49,9 +49,9 @@ class Base(object):
 
 
 def panel_data(data, columns=None):
-    """										## add comment
     """
-    dim, n_boot, n_realization = data.shape 		## n_realization for what?
+    """
+    dim, n_boot, n_realization = data.shape
     names = ('Variables', 'Bootstrap', 'Kriging')
     idx = [columns, range(n_boot), range(n_realization)]
     index = pd.MultiIndex.from_product(idx, names=names)
@@ -59,7 +59,7 @@ def panel_data(data, columns=None):
     return df
 
 def get_shape(indices):
-    """									## add comment
+    """
     """
     if indices.ndim == 1:
         dim = indices.shape[0]
@@ -106,8 +106,8 @@ class SensitivityResults(object):
         self._var_names = names
 
     @property
-    def true_indices(self):					## Is it really used?
-        """The true sensitivity results
+    def true_indices(self):
+        """The true sensitivity results.
         """
         data = {}
         if self.true_first_indices is not None:
@@ -153,7 +153,7 @@ class SensitivityResults(object):
 
     @property
     def shapley_indices(self):
-        """The Shapley indicies estimations.
+        """The Shapley indices estimations.
         """
         if self._shapley_indices is not None:
             return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
@@ -182,7 +182,7 @@ class SensitivityResults(object):
 
     @property
     def df_indices(self):
-        """The datafram of the sensitivity results
+        """The dataframe of the sensitivity results
         """
         dim = self.dim
         n_boot = self.n_boot

@@ -14,6 +14,7 @@ class Ishigami(ProbabilisticModel):
         ProbabilisticModel.__init__(self, model_func=ishigami_func, input_distribution=input_distribution)
         self.a = a
         self.b = b
+        self.name = 'Ishigami'
 
         # TODO: adapt the true result for any a and b.
         self._first_order_sobol_indices = [0.314, 0.442, 0.]
@@ -29,6 +30,7 @@ class AdditiveGaussian(ProbabilisticModel):
         input_distribution = ot.ComposedDistribution(margins, copula)
         ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
         self.beta = beta
+        self.name = 'Additive Gaussian'
 
     @property
     def beta(self):

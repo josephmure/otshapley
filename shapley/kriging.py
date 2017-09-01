@@ -94,7 +94,7 @@ class KrigingModel(ProbabilisticModel):
         if library == 'OT':
             self.covariance = kernel
             self.basis = basis_type
-            kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)   ## cov and basis reversed wrt the doc
+            kriging_algo = ot.KrigingAlgorithm(self.input_sample, self.output_sample.reshape(-1, 1), self.covariance, self.basis)
             kriging_algo.run()
             self.kriging_result = kriging_algo.getResult()
 
@@ -102,6 +102,7 @@ class KrigingModel(ProbabilisticModel):
             def meta_model(X, n_realization=1):
                 n_sample = X.shape[0]
                 if n_sample < MAX_N_SAMPLE:
+                    kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
                     results = np.asarray(kriging_vector.getSample(n_realization)).T
                 else:
                     state = np.random.randint(0, 1E7)
