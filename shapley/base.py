@@ -525,3 +525,57 @@ class ProbabilisticModel(Model):			## add some comments in this class
         indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
         
         return indices
+
+
+class MetaModel(ProbabilisticModel):
+    """
+    """
+    def __init__(self, model, input_distribution):
+        self.true_model = model
+        ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
+    
+    def generate_sample(self, n_sample=50, sampling='lhs'):
+        """Generate the sample to build the model.
+
+        Parameters
+        ----------
+        n_sample : int,
+            The sampling size.
+        sampling : str,
+            The sampling method to use.
+        """
+        if sampling == 'lhs':
+            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
+            input_sample = lhs.generate()
+        elif sampling == 'monte-carlo':
+            input_sample = self._input_distribution.getSample(n_sample)
+        else:
+            raise ValueError('Unknow sampling type {0}'.format(sampling))
+
+        self.input_sample = np.asarray(input_sample)
+        self.output_sample = self.true_model(input_sample)
+
+    @property
+    def input_sample(self):
+        """The input sample to build the model.
+        """
+        return self._input_sample
+    
+    @input_sample.setter
+    def input_sample(self, sample):
+        n_sample, dim = sample.shape
+        assert dim == self._dim, "Dimension should be the same as the input_distribution: %d != %d" % (dim, self._dim)
+        self._n_sample = n_sample
+        self._input_sample = sample
+
+    @property
+    def output_sample(self):
+        """The output sample to build the model.
+        """
+        return self._output_sample
+    
+    @output_sample.setter
+    def output_sample(self, sample):
+        n_sample = sample.shape[0]
+        assert n_sample == self._n_sample, "Samples should be the same sizes: %d != %d" % (n_sample, self._n_samples)
+        self._output_sample = sample

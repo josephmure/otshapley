@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
-from .base import Base, ProbabilisticModel, SensitivityResults
+from .base import Base, ProbabilisticModel, SensitivityResults, MetaModel
 
 MAX_N_SAMPLE = 2000
 
@@ -44,7 +44,7 @@ class KrigingIndices(Base):
         return meta_model
 
 
-class KrigingModel(ProbabilisticModel):
+class KrigingModel(MetaModel):
     """Class to build a kriging model.
     
     Parameters
@@ -56,40 +56,23 @@ class KrigingModel(ProbabilisticModel):
     """
     def __init__(self, model, input_distribution):
         self.true_model = model
-        ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
+        MetaModel.__init__(self, model_func=None, input_distribution=input_distribution)
 
         self._basis = None
         self._covariance = None
-
-    def generate_sample(self, n_sample=50, sampling='lhs'):
-        """Generate the sample to build the model.
-
-        Parameters
-        ----------
-        n_sample : int,
-            The sampling size.
-        sampling : str,
-            The sampling method to use.
-        """
-        if sampling == 'lhs':
-            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
-            input_sample = lhs.generate()
-        elif sampling == 'monte-carlo':
-            input_sample = self._input_distribution.getSample(n_sample)
-        else:
-            raise ValueError('Unknow sampling type {0}'.format(sampling))
-
-        self.input_sample = np.asarray(input_sample)
-        self.output_sample = self.true_model(input_sample)
-
-# before, the default library is OT and now and sklearn?
+        self._input_sample = None
+        self._output_sample = None
 
     def build(self, library='sklearn', kernel='matern', basis_type='linear'):
         """Build the Kriging model.
 
         Parameters
         ----------
+        library: str,
+            The used library to build the metamodel.
         """
+        assert self.input_sample is not None, "No input sample given"
+        assert self.output_sample is not None, "No output sample given"
         self.library = library
         if library == 'OT':
             self.covariance = kernel
@@ -118,8 +101,7 @@ class KrigingModel(ProbabilisticModel):
                         print('i_p:', i_p)
                     results = np.concatenate(results)
                 return results
-                
-            
+
             def predict(X):
                 """Predict the kriging model in a deterministic way.
                 """
@@ -162,31 +144,6 @@ class KrigingModel(ProbabilisticModel):
     def __call__(self, X, n_realization=1):
         y = self._model_func(X, n_realization)
         return y
-
-    @property
-    def input_sample(self):
-        """The input sample to build the model.
-        """
-        return self._input_sample
-    
-    @input_sample.setter
-    def input_sample(self, sample):
-        n_sample, dim = sample.shape
-        assert dim == self._dim, "Dimension should be the same as the input_distribution"
-        self._n_sample = n_sample
-        self._input_sample = sample
-
-    @property
-    def output_sample(self):
-        """The output sample to build the model.
-        """
-        return self._output_sample
-    
-    @output_sample.setter
-    def output_sample(self, sample):
-        n_sample = sample.shape[0]
-        assert n_sample == self._n_sample, "Samples should be the same sizes"
-        self._output_sample = sample
 
     @property
     def covariance(self):
