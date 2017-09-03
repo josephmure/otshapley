@@ -16,17 +16,23 @@ class RandomForestModel(MetaModel):
     def __init__(self, model, input_distribution):
         self.true_model = model
         ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
+        self.reg_rf = None
 
-    def build(self):
+    def build(self, n_estimators=10):
         """
         """
-        RandomForestRegressor.fit(self.input)
+        self.reg_rf = RandomForestRegressor(n_estimators=n_estimators).fit(self.input_sample, self.output_sample)
 
-    def __call__(self, X, n_realization=1):
-        n_sample = X.shape[0]
-        y = np.zeros((n_sample, n_realization))
-        forest = RandomForestRegressor(n_estimators=n_realization)
-        forest.fit(self.input_sample, self.output_sample)
-        for i, tree in enumerate(forest.estimators_):
-            y[:, i] = tree.predict(X, n_realization)
-        return y
+        def meta_model(X, n_estimators):
+            if self.reg_rf is None or self.reg_rf.n_estimators != n_estimators:
+                self.reg_rf = RandomForestRegressor(n_estimators=n_estimators).fit(self.input_sample, self.output_sample)
+        
+            n_sample = X.shape[0]
+            y = np.zeros((n_sample, n_estimators))
+            for i, tree in enumerate(self.reg_rf.estimators_):
+                y[:, i] = tree.predict(X)
+
+            return y
+
+        self.predict = self.reg_rf.predict
+        self.model_func = meta_model

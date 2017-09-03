@@ -76,7 +76,7 @@ def get_shape(indices):
 class SensitivityResults(object):
     """							## add comment for each function of this part
     """
-    def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, calculation_method=None, true_first_indices=None,
+    def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
                  true_total_indices=None, true_shapley_indices=None):
         self.dim = None
         self.n_boot = None
@@ -88,7 +88,6 @@ class SensitivityResults(object):
         self.true_first_indices = true_first_indices
         self.true_total_indices = true_total_indices
         self.true_shapley_indices = true_shapley_indices
-        self.calculation_method = calculation_method
 
     @property
     def var_names(self):
@@ -304,18 +303,6 @@ class SensitivityResults(object):
         """
         df = melt_kriging(self.full_df_shapley_indices)
         return df
-
-    @property
-    def calculation_method(self):
-        """
-        """
-        return self._calculation_method
-
-    @calculation_method.setter
-    def calculation_method(self, method):
-        """
-        """
-        self._calculation_method = method
 
 def melt_kriging(df):
     """
@@ -579,3 +566,7 @@ class MetaModel(ProbabilisticModel):
         n_sample = sample.shape[0]
         assert n_sample == self._n_sample, "Samples should be the same sizes: %d != %d" % (n_sample, self._n_samples)
         self._output_sample = sample
+
+    def __call__(self, X, n_estimators):
+        y = self._model_func(X, n_estimators)
+        return y

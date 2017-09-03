@@ -6,7 +6,6 @@ from .kriging import KrigingIndices
 from .base import SensitivityResults
 
 
-
 def condMVN_new(cov, dependent_ind, given_ind, X_given):
     """ Returns conditional mean and variance of X[dependent.ind] | X[given.ind] = X.given
     where X is multivariateNormal(mean = mean, covariance = cov)"""
@@ -272,7 +271,6 @@ class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
         KrigingIndices.__init__(self, input_distribution)
         ShapleyIndices.__init__(self, input_distribution)
 
-        
     def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
         """
         """

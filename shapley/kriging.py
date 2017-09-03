@@ -81,7 +81,7 @@ class KrigingModel(MetaModel):
             self.kriging_result = kriging_algo.getResult()
 
             # The resulting meta_model function
-            def meta_model(X, n_realization=1):
+            def meta_model(X, n_realization):
                 n_sample = X.shape[0]
                 if n_sample < MAX_N_SAMPLE:
                     kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
@@ -139,10 +139,6 @@ class KrigingModel(MetaModel):
 
         self.predict = predict
         self.model_func = meta_model
-
-    def __call__(self, X, n_realization=1):
-        y = self._model_func(X, n_realization)
-        return y
 
     @property
     def covariance(self):
@@ -214,7 +210,7 @@ def q2_cv(ytrue, ypred):
        
     ytrue = ytrue.squeeze()
     ypred = ypred.squeeze()
-    q2 = max(0., test_q2(ytrue, ypred))                     ## thus useless ?
+    q2 = max(0., test_q2(ytrue, ypred))
     return q2
 
 def q2_loo(input_sample, output_sample, library, covariance, basis=None):
