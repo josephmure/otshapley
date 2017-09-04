@@ -2,6 +2,8 @@ import openturns as ot
 import numpy as np
 import pandas as pd
 
+from .utils import q2_cv
+
 VALUE_NAME = 'Indice values'
 
 class Base(object):
@@ -521,7 +523,7 @@ class MetaModel(ProbabilisticModel):
         self.true_model = model
         ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
     
-    def generate_sample(self, n_sample=50, sampling='lhs'):
+    def generate_sample(self, n_sample=50, sampling='lhs', copula='independent'):
         """Generate the sample to build the model.
 
         Parameters
@@ -531,11 +533,15 @@ class MetaModel(ProbabilisticModel):
         sampling : str,
             The sampling method to use.
         """
-        if sampling == 'lhs':
-            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
+        dist = ot.ComposedDistribution(self._input_distribution)
+        if copula == 'independent':
+            dist.setCopula(ot.IndependentCopula(self.dim))
+            
+        if sampling == 'lhs':            
+            lhs = ot.LHSExperiment(dist, n_sample)
             input_sample = lhs.generate()
         elif sampling == 'monte-carlo':
-            input_sample = self._input_distribution.getSample(n_sample)
+            input_sample = dist.getSample(n_sample)
         else:
             raise ValueError('Unknow sampling type {0}'.format(sampling))
 
@@ -566,6 +572,17 @@ class MetaModel(ProbabilisticModel):
         n_sample = sample.shape[0]
         assert n_sample == self._n_sample, "Samples should be the same sizes: %d != %d" % (n_sample, self._n_samples)
         self._output_sample = sample
+        
+        
+    def compute_score_q2_cv(self, n_sample=100, sampling='lhs'):
+        """Cross Validation estimation of Q2.
+        """
+        x = self.get_input_sample(n_sample, sampling=sampling)
+        ytrue = self.true_model(x)
+        ypred = self.predict(x)
+        q2 = q2_cv(ytrue, ypred)
+        self.score_q2_cv = q2
+        return q2
 
     def __call__(self, X, n_estimators):
         y = self._model_func(X, n_estimators)

@@ -3,8 +3,9 @@ import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from .base import Base, ProbabilisticModel, SensitivityResults, MetaModel
+from .utils import test_q2
 
-MAX_N_SAMPLE = 2000
+MAX_N_SAMPLE = 5000
 
 class KrigingIndices(Base):
     """Estimate indices using a kriging based metamodel.
@@ -83,7 +84,7 @@ class KrigingModel(MetaModel):
             # The resulting meta_model function
             def meta_model(X, n_realization):
                 n_sample = X.shape[0]
-                if n_sample < MAX_N_SAMPLE:
+                if n_sample <= MAX_N_SAMPLE:
                     kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
                     results = np.asarray(kriging_vector.getSample(n_realization)).T
                 else:
@@ -133,6 +134,7 @@ class KrigingModel(MetaModel):
                         print('i_p:', i_p)
                     results = np.concatenate(results)
                 return results
+            
             predict = kriging_result.predict
         else:
             raise ValueError('Unknow library {0}'.format(library))
@@ -167,51 +169,6 @@ class KrigingModel(MetaModel):
         self.score_q2_loo = q2
         return q2
 
-    def compute_score_q2_cv(self, n_sample=100, sampling='lhs'):
-        """Cross Validation estimation of Q2.
-        """
-        x = self.get_input_sample(n_sample, sampling=sampling)
-        ytrue = self.true_model(x)
-        ypred = self.predict(x)
-        q2 = q2_cv(ytrue, ypred)
-        self.score_q2_cv = q2
-        return q2
-
-def test_q2(ytrue, ypred):
-    """Compute the Q2 test.
-
-    Parameters
-    ----------
-    ytrue : array,
-        The true output values.
-    ypred : array,
-        The predicted output values.
-
-    Returns
-    -------
-    q2 : float,
-        The estimated Q2.
-    """
-    ymean = ytrue.mean()
-    up = ((ytrue - ypred)**2).sum()
-    down = ((ytrue - ymean)**2).sum()
-    q2 = 1. - up / down
-    return q2
-
-
-def q2_cv(ytrue, ypred):
-    """Cross validation Q2 test.
-
-    Parameters
-    ----------
-    ytrue : array,
-        The true values.
-    """
-       
-    ytrue = ytrue.squeeze()
-    ypred = ypred.squeeze()
-    q2 = max(0., test_q2(ytrue, ypred))
-    return q2
 
 def q2_loo(input_sample, output_sample, library, covariance, basis=None):
     """Leave One Out estimation of Q2.

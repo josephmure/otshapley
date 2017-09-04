@@ -125,12 +125,7 @@ class ShapleyIndices(Base):
     def __init__(self, input_distribution):
         Base.__init__(self, input_distribution)
 
-    def build_mc_sample(self, model, n_perms=None, Nv=10000, No=1000, Ni=3):
-        """
-        """
-        return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
-
-    def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
+    def build_sample(self, model, n_perms, Nv, No, Ni, n_realization=1):
         """
         """
         dim = self.dim
@@ -262,16 +257,3 @@ class ShapleyIndices(Base):
         results = SensitivityResults(first_indices=first_indices, total_indices=total_indices,
                                      shapley_indices=shapley_indices)
         return results
-
-
-class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
-    """Shappley indices object estimator.
-    """
-    def __init__(self, input_distribution):
-        KrigingIndices.__init__(self, input_distribution)
-        ShapleyIndices.__init__(self, input_distribution)
-
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
-        """
-        """
-        return self._build_mc_sample(model, n_perms=n_perms, Nv=Nv, No=No, Ni=Ni, n_realization=n_realization)

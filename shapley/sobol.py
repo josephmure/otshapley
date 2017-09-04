@@ -159,6 +159,7 @@ class SobolIndices(Base):
         else:
             raise ValueError('Unknow type of indice {0}'.format(type))
 
+        # TODO: cythonize this, takes too much memory when n_boot is large
         boot_idx = None
         for i in range(dim):
             if n_boot > 1:

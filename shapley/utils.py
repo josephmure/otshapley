@@ -37,3 +37,40 @@ def create_df_from_mc_indices(indices):
     df = pd.DataFrame(indices.T, columns=columns)
     df = pd.melt(df, value_vars=columns, var_name='Variables', value_name='Indice values')
     return df
+
+
+def q2_cv(ytrue, ypred):
+    """Cross validation Q2 test.
+
+    Parameters
+    ----------
+    ytrue : array,
+        The true values.
+    """
+       
+    ytrue = ytrue.squeeze()
+    ypred = ypred.squeeze()
+    q2 = max(0., test_q2(ytrue, ypred))
+    return q2
+
+
+def test_q2(ytrue, ypred):
+    """Compute the Q2 test.
+
+    Parameters
+    ----------
+    ytrue : array,
+        The true output values.
+    ypred : array,
+        The predicted output values.
+
+    Returns
+    -------
+    q2 : float,
+        The estimated Q2.
+    """
+    ymean = ytrue.mean()
+    up = ((ytrue - ypred)**2).sum()
+    down = ((ytrue - ymean)**2).sum()
+    q2 = 1. - up / down
+    return q2
