@@ -6,8 +6,8 @@ from .utils import q2_cv
 
 VALUE_NAME = 'Indice values'
 
-class Base(object):
-    """Base class.
+class BaseIndices(object):
+    """Base class for sensitivity indices.
 
     Parameters
     ----------
@@ -50,33 +50,8 @@ class Base(object):
         self._indice_func = func
 
 
-def panel_data(data, columns=None):
-    """
-    """
-    dim, n_boot, n_realization = data.shape
-    names = ('Variables', 'Bootstrap', 'Kriging')
-    idx = [columns, range(n_boot), range(n_realization)]
-    index = pd.MultiIndex.from_product(idx, names=names)
-    df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
-    return df
-
-def get_shape(indices):
-    """
-    """
-    if indices.ndim == 1:
-        dim = indices.shape[0]
-        n_boot = 1
-        n_realization = 1
-    elif indices.ndim == 2:
-        dim, n_boot = indices.shape
-        n_realization = 1
-    elif indices.ndim == 3:
-        dim, n_boot, n_realization = indices.shape
-
-    return dim, n_boot, n_realization
-
 class SensitivityResults(object):
-    """							## add comment for each function of this part
+    """
     """
     def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
                  true_total_indices=None, true_shapley_indices=None):
@@ -306,6 +281,7 @@ class SensitivityResults(object):
         df = melt_kriging(self.full_df_shapley_indices)
         return df
 
+
 def melt_kriging(df):
     """
     """
@@ -320,270 +296,29 @@ def melt_kriging(df):
     df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
     return df
 
-class Model(object):
-    """Class to create Model object.
 
-    Parameters
-    ----------
-    model_func : callable,
-        The model function.
-    """
-    def __init__(self, model_func):
-        self.model_func = model_func
-
-    @property
-    def model_func(self):
-        """The model function.
-        """
-        return self._model_func
-
-    @model_func.setter
-    def model_func(self, func):
-        if func is not None:
-            assert callable(func), "The function should be callable"
-        self._model_func = func
-
-    def __call__(self, x):
-        y = self._model_func(x)
-        return y
-
-
-class ProbabilisticModel(Model):			## add some comments in this class
-    """Create probabilistic model instances.
-
-    Parameters
-    ----------
-    model_func : callable,
-        The model function.
-    input_distribution : ot.DistributionImplementation,
-        The input distribution
-    """
-    def __init__(self, model_func, input_distribution):
-        Model.__init__(self, model_func=model_func)
-        self.input_distribution = input_distribution
-        self._first_order_sobol_indices = None
-        self._total_sobol_indices = None
-        self._shapley_indices = None
-
-    @property
-    def copula(self):
-        """The problem copula.
-        """
-        return self._copula
-    
-    @copula.setter
-    def copula(self, copula):
-        assert isinstance(copula, (ot.CopulaImplementation, ot.DistributionImplementationPointer)), \
-            "The copula should be an OpenTURNS implementation: {0}".format(type(copula))
-        self._input_distribution = ot.ComposedDistribution(self._margins, copula)
-        self._copula = copula
-
-    @property
-    def copula_parameters(self):
-        """
-        """
-        return self._copula_parameters
-
-    @copula_parameters.setter
-    def copula_parameters(self, params):
-        copula = self._copula
-        copula.setParameter(params)
-        self.copula = copula
-
-    @property
-    def margins(self):
-        """The problem margins.
-        """
-        return self._margins
-
-    @margins.setter
-    def margins(self, margins):
-        assert isinstance(margins, list), "It should be a list"
-        for marginal in margins:
-            assert isinstance(marginal, ot.DistributionImplementation), "The marginal should be an OpenTURNS implementation."
-        self._input_distribution = ot.ComposedDistribution(margins, self._copula)
-        self._margins = margins
-
-    @property
-    def dim(self):
-        """The problem dimension.
-        """
-        return self._dim
-
-    @property
-    def input_distribution(self):
-        """The OpenTURNS input distribution.
-        """
-        return self._input_distribution
-
-    @input_distribution.setter
-    def input_distribution(self, dist):
-        assert isinstance(dist, ot.DistributionImplementation), "The distribution should be an OpenTURNS implementation."
-        self._input_distribution = dist
-        self._dim = self._input_distribution.getDimension()
-        self._margins = [dist.getMarginal(i) for i in range(self._dim)]
-        self._copula = dist.getCopula()
-
-    def get_input_sample(self, n_sample, sampling='lhs'):
-        """Generate a sample of the input distribution.
-
-        Parameters
-        ----------
-        n_sample : int,
-            The number of observations.
-        sampling : str,
-            The sampling type.
-
-        Returns
-        -------
-        input_sample : array,
-            A sample of the input distribution.
-        """
-        if sampling =='lhs':
-            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
-            input_sample = np.asarray(lhs.generate())
-        elif sampling == 'monte-carlo':
-            input_sample = np.asarray(self._input_distribution.getSample(n_sample))
-
-        return input_sample
-
-    @property
-    def first_order_sobol_indices(self):
-        """The true first order sobol indices.
-        """
-        if self._first_order_sobol_indices is None:
-            print ('There is no true first order sobol indices')
-
-        return self._first_order_sobol_indices
-
-    @first_order_sobol_indices.setter
-    def first_order_sobol_indices(self, indices):
-        """
-        """
-        self._first_order_sobol_indices = indices
-
-    @property
-    def total_sobol_indices(self):
-        """The true total sobol indices.
-        """
-        if self._total_sobol_indices is None:
-            print ('There is no true first order sobol indices')
-
-        return self._total_sobol_indices
-
-    @total_sobol_indices.setter
-    def total_sobol_indices(self, indices):
-        """
-        """
-        self._total_sobol_indices = indices
-
-    @property
-    def shapley_indices(self):
-        """The true shapley effects.
-        """
-        if self._shapley_indices is None:
-            print ('There is no true first order shapley effect.')
-
-        return self._shapley_indices
-
-    @shapley_indices.setter
-    def shapley_indices(self, indices):
-        """
-        """
-        self._shapley_indices = indices
-
-    @property
-    def sobol_indices(self):
-        """
-        """
-        df = pd.DataFrame({'True first': self.first_order_sobol_indices,
-                  'True total': self.total_sobol_indices,
-                  'Variables': ['$X_{%d}$' % (i+1) for i in range(self._dim)]})
-        true_indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
-        
-        return true_indices
-
-    @property
-    def indices(self):
-        """
-        """
-        df = pd.DataFrame({'True first': self.first_order_sobol_indices,
-                  'True total': self.total_sobol_indices,
-                  'True shapley': self.shapley_indices,
-                  'Variables': ['$X_{%d}$' % (i+1) for i in range(self._dim)]})
-        indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
-        
-        return indices
-
-
-class MetaModel(ProbabilisticModel):
+def panel_data(data, columns=None):
     """
     """
-    def __init__(self, model, input_distribution):
-        self.true_model = model
-        ProbabilisticModel.__init__(self, model_func=None, input_distribution=input_distribution)
-    
-    def generate_sample(self, n_sample=50, sampling='lhs', copula='independent'):
-        """Generate the sample to build the model.
+    dim, n_boot, n_realization = data.shape
+    names = ('Variables', 'Bootstrap', 'Kriging')
+    idx = [columns, range(n_boot), range(n_realization)]
+    index = pd.MultiIndex.from_product(idx, names=names)
+    df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
+    return df
 
-        Parameters
-        ----------
-        n_sample : int,
-            The sampling size.
-        sampling : str,
-            The sampling method to use.
-        """
-        dist = ot.ComposedDistribution(self._input_distribution)
-        if copula == 'independent':
-            dist.setCopula(ot.IndependentCopula(self.dim))
-            
-        if sampling == 'lhs':            
-            lhs = ot.LHSExperiment(dist, n_sample)
-            input_sample = lhs.generate()
-        elif sampling == 'monte-carlo':
-            input_sample = dist.getSample(n_sample)
-        else:
-            raise ValueError('Unknow sampling type {0}'.format(sampling))
 
-        self.input_sample = np.asarray(input_sample)
-        self.output_sample = self.true_model(input_sample)
+def get_shape(indices):
+    """
+    """
+    if indices.ndim == 1:
+        dim = indices.shape[0]
+        n_boot = 1
+        n_realization = 1
+    elif indices.ndim == 2:
+        dim, n_boot = indices.shape
+        n_realization = 1
+    elif indices.ndim == 3:
+        dim, n_boot, n_realization = indices.shape
 
-    @property
-    def input_sample(self):
-        """The input sample to build the model.
-        """
-        return self._input_sample
-    
-    @input_sample.setter
-    def input_sample(self, sample):
-        n_sample, dim = sample.shape
-        assert dim == self._dim, "Dimension should be the same as the input_distribution: %d != %d" % (dim, self._dim)
-        self._n_sample = n_sample
-        self._input_sample = sample
-
-    @property
-    def output_sample(self):
-        """The output sample to build the model.
-        """
-        return self._output_sample
-    
-    @output_sample.setter
-    def output_sample(self, sample):
-        n_sample = sample.shape[0]
-        assert n_sample == self._n_sample, "Samples should be the same sizes: %d != %d" % (n_sample, self._n_samples)
-        self._output_sample = sample
-        
-        
-    def compute_score_q2_cv(self, n_sample=100, sampling='lhs'):
-        """Cross Validation estimation of Q2.
-        """
-        x = self.get_input_sample(n_sample, sampling=sampling)
-        ytrue = self.true_model(x)
-        ypred = self.predict(x)
-        q2 = q2_cv(ytrue, ypred)
-        self.score_q2_cv = q2
-        return q2
-
-    def __call__(self, X, n_estimators):
-        y = self._model_func(X, n_estimators)
-        return y
+    return dim, n_boot, n_realization

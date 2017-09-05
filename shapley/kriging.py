@@ -2,12 +2,13 @@ import numpy as np
 import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
-from .base import Base, ProbabilisticModel, SensitivityResults, MetaModel
+from .indices import BaseIndices, SensitivityResults
+from .model import ProbabilisticModel, MetaModel
 from .utils import test_q2
 
-MAX_N_SAMPLE = 5000
+MAX_N_SAMPLE = 15000
 
-class KrigingIndices(Base):
+class KrigingIndices(BaseIndices):
     """Estimate indices using a kriging based metamodel.
 
     Parameters
@@ -91,9 +92,9 @@ class KrigingModel(MetaModel):
                     state = np.random.randint(0, 1E7)
                     for max_n in range(MAX_N_SAMPLE, 1, -1):
                         if n_sample % max_n == 0:
-                            print(max_n)
                             break
                     results = []
+                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
                     for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
                         ot.RandomGenerator.SetSeed(state)
                         kriging_vector = ot.KrigingRandomVector(self.kriging_result, X_p)
@@ -123,12 +124,12 @@ class KrigingModel(MetaModel):
                 else:
                     print('Sample size is too large. A loop is done to save memory.')
                     state = np.random.randint(0, 1E7)
-                    
+
                     for max_n in range(MAX_N_SAMPLE, 1, -1):
                         if n_sample % max_n == 0:
-                            print(max_n)
                             break
                     results = []
+                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
                     for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
                         results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))
                         print('i_p:', i_p)

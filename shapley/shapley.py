@@ -1,9 +1,7 @@
 import numpy as np
 import openturns as ot
 
-from .base import Base
-from .kriging import KrigingIndices
-from .base import SensitivityResults
+from .indices import BaseIndices, SensitivityResults
 
 
 def condMVN_new(cov, dependent_ind, given_ind, X_given):
@@ -119,7 +117,7 @@ def sub_sampling(distribution, n_sample, idx):
     return sample
 
 
-class ShapleyIndices(Base):
+class ShapleyIndices(BaseIndices):
     """Shappley indices object estimator.
     """
     def __init__(self, input_distribution):

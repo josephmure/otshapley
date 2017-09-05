@@ -1,10 +1,9 @@
 import numpy as np
 
-from .kriging import KrigingIndices
-from .base import Base, SensitivityResults
+from .indices import BaseIndices, SensitivityResults
 
 
-class SobolIndices(Base):
+class SobolIndices(BaseIndices):
     """The class of Sobol indices.
 
     Parameters
@@ -13,7 +12,7 @@ class SobolIndices(Base):
         And OpenTURNS distribution object.
     """
     def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
+        BaseIndices.__init__(self, input_distribution)
         self.indice_func = sobol_indices
 
     # TODO: gather the two function and add an option for the 
@@ -66,6 +65,7 @@ class SobolIndices(Base):
         self.all_output_sample_2t = all_output_sample_2t
         self.n_sample = n_sample
         self.n_realization = n_realization
+        self.model = model
     
     def build_uncorr_sample(self, model, n_sample, n_realization):
         """         ## add some comment here too
@@ -139,6 +139,7 @@ class SobolIndices(Base):
         self.all_output_sample_2t1 = all_output_sample_2t1
         self.n_sample = n_sample
         self.n_realization = n_realization
+        self.model = model
 
     def compute_indices(self, n_boot, estimator, indice_type='classic'):
         """
@@ -180,7 +181,13 @@ class SobolIndices(Base):
 
         if np.isnan(total_indices).all():
             total_indices = None
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices)
+
+        results = SensitivityResults(
+            first_indices=first_indices,
+            total_indices=total_indices,
+            true_first_indices=self.model.first_sobol_indices,
+            true_total_indices=self.model.total_sobol_indices,
+            true_shapley_indices=self.model.shapley_indices)
         return results
 
 

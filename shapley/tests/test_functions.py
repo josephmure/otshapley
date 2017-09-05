@@ -1,25 +1,23 @@
 import numpy as np
 import openturns as ot
 
-from shapley.base import ProbabilisticModel
+from shapley.model import ProbabilisticModel
 
 class Ishigami(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function for sensitivity analysis.
     """
-    def __init__(self, a=7, b=0.1):
+    def __init__(self):
         dim = 3
         margins = [ot.Uniform(-np.pi, np.pi)]*dim
         copula = ot.IndependentCopula(dim)
         input_distribution = ot.ComposedDistribution(margins, copula)
-        ProbabilisticModel.__init__(self, model_func=ishigami_func, input_distribution=input_distribution)
-        self.a = a
-        self.b = b
+        ProbabilisticModel.__init__(
+            self,            model_func=ishigami_func, 
+            input_distribution=input_distribution,
+            first_sobol_indices=[0.314, 0.442, 0.],
+            total_sobol_indices=[0.56, 0.44, 0.24],
+            shapley_indices=[0.437, 0.441, 0.12])
         self.name = 'Ishigami'
-
-        # TODO: adapt the true result for any a and b.
-        self._first_order_sobol_indices = [0.314, 0.442, 0.]
-        self._total_sobol_indices = [0.56, 0.44, 0.24]
-        self._shapley_indices = (np.asarray(self._first_order_sobol_indices) + np.asarray(self._total_sobol_indices))/2.
 
 class AdditiveGaussian(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function for sensitivity analysis.
