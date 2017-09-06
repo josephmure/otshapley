@@ -4,29 +4,34 @@ import openturns as ot
 from shapley.model import ProbabilisticModel
 
 class Ishigami(ProbabilisticModel):
-    """This class collect all the information about the Ishigami test function for sensitivity analysis.
+    """This class collect all the information about the Ishigami test function
+    for sensitivity analysis.
     """
     def __init__(self):
         dim = 3
         margins = [ot.Uniform(-np.pi, np.pi)]*dim
         copula = ot.IndependentCopula(dim)
-        input_distribution = ot.ComposedDistribution(margins, copula)
         ProbabilisticModel.__init__(
-            self,            model_func=ishigami_func, 
-            input_distribution=input_distribution,
+            self,            
+            model_func=ishigami_func, 
+            input_distribution=ot.ComposedDistribution(margins, copula),
             first_sobol_indices=[0.314, 0.442, 0.],
             total_sobol_indices=[0.56, 0.44, 0.24],
             shapley_indices=[0.437, 0.441, 0.12])
         self.name = 'Ishigami'
 
+
 class AdditiveGaussian(ProbabilisticModel):
-    """This class collect all the information about the Ishigami test function for sensitivity analysis.
+    """This class collect all the information about the Additive Gaussian test 
+    function for sensitivity analysis.
     """
     def __init__(self, dim, beta=None):
         margins = [ot.Normal()]*dim
         copula = ot.NormalCopula(dim)
-        input_distribution = ot.ComposedDistribution(margins, copula)
-        ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
+        ProbabilisticModel.__init__(
+                self, 
+                model_func=additive_func, 
+                input_distribution=ot.ComposedDistribution(margins, copula))
         self.beta = beta
         self.name = 'Additive Gaussian'
 
@@ -46,7 +51,7 @@ class AdditiveGaussian(ProbabilisticModel):
         self._beta = beta
 
     @property
-    def first_order_sobol_indices(self):
+    def first_sobol_indices(self):
         """
         """
         #beta = self.beta
@@ -93,11 +98,11 @@ class AdditiveGaussian(ProbabilisticModel):
             indices = np.asarray([(1 + 2*theta[0] + theta[0]**2)/var_y]*dim)
             return indices
         else:
-            return self._first_order_sobol_indices
+            return self._first_sobol_indices
 
-    @first_order_sobol_indices.setter
-    def first_order_sobol_indices(self, indices):
-        self._first_order_sobol_indices = indices
+    @first_sobol_indices.setter
+    def first_sobol_indices(self, indices):
+        self._first_sobol_indices = indices
 
     @property
     def total_sobol_indices(self):

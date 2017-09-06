@@ -2,9 +2,7 @@ import openturns as ot
 import numpy as np
 import pandas as pd
 
-from .utils import q2_cv
-
-VALUE_NAME = 'Indice values'
+from .utils import DF_NAMES
 
 class BaseIndices(object):
     """Base class for sensitivity indices.
@@ -94,9 +92,9 @@ class SensitivityResults(object):
             data['True shapley'] = self.true_shapley_indices
             
         if data != {}:
-            data['Variables'] = ['$X_{%d}$' % (i+1) for i in range(self.dim)]
+            data[DF_NAMES['var']] = ['$X_{%d}$' % (i+1) for i in range(self.dim)]
             df = pd.DataFrame(data)
-            indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+            indices = pd.melt(df, id_vars=[DF_NAMES['var']], var_name=DF_NAMES['ind'], value_name=DF_NAMES['val'])
             return indices
 
     @property
@@ -161,25 +159,23 @@ class SensitivityResults(object):
         """The dataframe of the sensitivity results
         """
         dim = self.dim
-        n_boot = self.n_boot
-        n_realization = self.n_realization
         feat_indices = 'Indices'
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         all_df = []
         if self._first_indices is not None:
             df_first = panel_data(self._first_indices, columns=columns)
-            df_first_melt = pd.melt(df_first.T, value_name=VALUE_NAME)
-            df_first_melt[feat_indices] = 'First'
+            df_first_melt = pd.melt(df_first.T, value_name=DF_NAMES['val'])
+            df_first_melt[feat_indices] = DF_NAMES['1st']
             all_df.append(df_first_melt)
         if self._total_indices is not None:
             df_total = panel_data(self._total_indices, columns=columns)
-            df_total_melt = pd.melt(df_total.T, value_name=VALUE_NAME)
-            df_total_melt[feat_indices] = 'Total'
+            df_total_melt = pd.melt(df_total.T, value_name=DF_NAMES['val'])
+            df_total_melt[feat_indices] = DF_NAMES['tot']
             all_df.append(df_total_melt)
         if self._shapley_indices is not None:
             df_shapley = panel_data(self._shapley_indices, columns=columns)
-            df_shapley_melt = pd.melt(df_shapley.T, value_name=VALUE_NAME)
-            df_shapley_melt[feat_indices] = 'Shapley'
+            df_shapley_melt = pd.melt(df_shapley.T, value_name=DF_NAMES['val'])
+            df_shapley_melt[feat_indices] = DF_NAMES['shap']
             all_df.append(df_shapley_melt)
 
         df = pd.concat(all_df)
@@ -194,8 +190,8 @@ class SensitivityResults(object):
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         df_first = panel_data(self._first_indices, columns=columns)
         df_total = panel_data(self._total_indices, columns=columns)
-        df_first['Indices'] = 'First'
-        df_total['Indices'] = 'Total'
+        df_first[DF_NAMES['ind']] = DF_NAMES['1st']
+        df_total[DF_NAMES['ind']] = DF_NAMES['tot']
 
         df = pd.concat([df_first, df_total])
         return df
@@ -285,15 +281,15 @@ class SensitivityResults(object):
 def melt_kriging(df):
     """
     """
-    df_boot = df.mean(level=['Variables', 'Kriging'])
-    df_boot_melt = pd.melt(df_boot.T, value_name=VALUE_NAME)
-    df_boot_melt['Error'] = 'Kriging'
+    df_boot = df.mean(level=[DF_NAMES['var'], DF_NAMES['gp']])
+    df_boot_melt = pd.melt(df_boot.T, value_name=DF_NAMES['val'])
+    df_boot_melt['Error'] = DF_NAMES['gp']
 
-    df_kriging = df.mean(level=['Variables', 'Bootstrap'])
-    df_kriging_melt = pd.melt(df_kriging.T, value_name=VALUE_NAME)
-    df_kriging_melt['Error'] = 'Bootstrap'
+    df_kriging = df.mean(level=[DF_NAMES['var'], DF_NAMES['mc']])
+    df_kriging_melt = pd.melt(df_kriging.T, value_name=DF_NAMES['val'])
+    df_kriging_melt['Error'] = DF_NAMES['mc']
 
-    df = pd.concat([df_boot_melt.drop('Kriging', axis=1), df_kriging_melt.drop('Bootstrap', axis=1)])
+    df = pd.concat([df_boot_melt.drop(DF_NAMES['gp'], axis=1), df_kriging_melt.drop(DF_NAMES['mc'], axis=1)])
     return df
 
 
@@ -301,10 +297,10 @@ def panel_data(data, columns=None):
     """
     """
     dim, n_boot, n_realization = data.shape
-    names = ('Variables', 'Bootstrap', 'Kriging')
+    names = (DF_NAMES['var'], DF_NAMES['mc'], DF_NAMES['gp'])
     idx = [columns, range(n_boot), range(n_realization)]
     index = pd.MultiIndex.from_product(idx, names=names)
-    df = pd.DataFrame(data.ravel(), columns=[VALUE_NAME], index=index)
+    df = pd.DataFrame(data.ravel(), columns=[DF_NAMES['val']], index=index)
     return df
 
 

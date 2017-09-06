@@ -1,7 +1,8 @@
 import numpy as np
 import openturns as ot
+import pandas as pd
 
-from .utils import q2_cv
+from .utils import q2_cv, DF_NAMES
 
 # TODO: parallelize the model function
 
@@ -219,6 +220,11 @@ class ProbabilisticModel(Model):
     @property
     def df_indices(self):
         """A dataframe of the true indices.
+        
+        Returns
+        -------
+        indices : dataframe
+            The dataframe of the registered sensitivity indices.
         """
         d_indices = {}
         if self._first_sobol_indices is not None:
@@ -229,9 +235,9 @@ class ProbabilisticModel(Model):
             d_indices['True shapley'] = self._shapley_indices
 
         if d_indices:
-            d_indices['Variables'] = ['$X_{%d}$' % (i+1) for i in range(self._dim)]
+            d_indices[DF_NAMES['var']] = ['$X_{%d}$' % (i+1) for i in range(self._dim)]
             df = pd.DataFrame(d_indices)
-            indices = pd.melt(df, id_vars=['Variables'], var_name='Indices', value_name=VALUE_NAME)
+            indices = pd.melt(df, id_vars=[DF_NAMES['var']], var_name=DF_NAMES['ind'], value_name=DF_NAMES['val'])
         else:
             indices = None
             print('There is no true indices.')
@@ -251,12 +257,19 @@ class MetaModel(ProbabilisticModel):
     input_distribution : ot.DistributionImplementation or None, optional (default=None)
         The probabilistic input distribution.
     """
-    def __init__(self, 
-                 model=None,
-                 input_distribution=None):
-        super(MetaModel, self).__init__(
-            model_func=None,
-            input_distribution=input_distribution)
+    def __init__(self, model=None, input_distribution=None):
+        if isinstance(model, ProbabilisticModel):
+            super(MetaModel, self).__init__(
+                model_func=None,
+                input_distribution=input_distribution,
+                first_sobol_indices=model.first_sobol_indices,
+                total_sobol_indices=model.total_sobol_indices,
+                shapley_indices=model.shapley_indices
+                )
+        else:
+            super(MetaModel, self).__init__(
+                model_func=None,
+                input_distribution=input_distribution)
         self.true_model = model
 
     def generate_sample(self, n_sample=50, sampling='lhs', sampling_type='uniform', alpha=0.99):

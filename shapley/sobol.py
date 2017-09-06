@@ -1,10 +1,15 @@
 import numpy as np
+import openturns as ot
 
 from .indices import BaseIndices, SensitivityResults
 
 
 class SobolIndices(BaseIndices):
-    """The class of Sobol indices.
+    """The Sobol indices.
+    
+    Estimate with a Monte-Carlo sampling, the first-order and total sobol
+    indices. The classical method in addition to the uncorrelated sampling 
+    using the Rosenblatt Transformation are implemented.
 
     Parameters
     ----------
@@ -17,17 +22,34 @@ class SobolIndices(BaseIndices):
 
     # TODO: gather the two function and add an option for the 
     def build_sample(self, model, n_sample, n_realization=1):
-        """Build the Monte-Carlo samples.
+        """Creates the Monte-Carlo samples for independent variables.
+        
+        A pick and freeze strategy is done considering the distribution of the 
+        input sample. This method creates the input samples and evaluate them 
+        through the model to create the output sample. Note that the variables
+        should be considered independent.
 
         Parameters
         ----------
-        model : callable,
+        model : callable
             The model function.
-        n_sample : int,
-            The sampling size of Monte-Carlo
-        n_realization : int,
-            The number of Gaussian Process realizations.
+            
+        n_sample : int
+            The sampling size of the Monte-Carlo estimation.
+            
+        n_realization : int, optional (default=1)
+            The number of realization of the meta-model.            
         """
+        
+        assert model is callable, "The model should be a function"
+        assert isinstance(n_sample, int), \
+            "The number of sample should be an integer"
+        assert isinstance(n_realization, int), \
+            "The number of realization should be an integer" 
+        assert n_sample > 0, \
+            "The number of sample should be positive: %d<0" % (n_sample)
+        assert n_realization > 0, \
+            "The number of realization should be positive: %d<0" % (n_realization)
         dim = self.dim
         
         # Simulate the two independent samples
@@ -67,12 +89,44 @@ class SobolIndices(BaseIndices):
         self.n_realization = n_realization
         self.model = model
     
-    def build_uncorr_sample(self, model, n_sample, n_realization):
-        """         ## add some comment here too
-        """
-        dim = self.dim
+    def build_uncorr_sample(self, model, n_sample, n_realization=1):
+        """Creates the Monte-Carlo samples for correlated variables.
+        
+        A pick and freeze strategy is done considering the distribution of the 
+        input sample. This method creates the input samples and evaluate them 
+        through the model to create the output sample. Note that the variables
+        should be considered independent.
 
-        # Normal distribution
+        Parameters
+        ----------
+        model : callable
+            The model function.
+            
+        n_sample : int
+            The sampling size of the Monte-Carlo estimation.
+            
+        n_realization : int, optional (default=1)
+            The number of realization of the meta-model.  
+            
+        References
+        ----------
+        .. [1] Thierry A Mara, Stefano Tarantola, Paola Annoni, Non-parametric
+            methods for global sensitivity analysis of model output with dependent inputs
+            https://hal.archives-ouvertes.fr/hal-01182302/file/Mara15EMS_HAL.pdf
+        """
+        assert model is callable, "The model should be a function"
+        assert isinstance(n_sample, int), \
+            "The number of sample should be an integer"
+        assert isinstance(n_realization, int), \
+            "The number of realization should be an integer" 
+        assert n_sample > 0, \
+            "The number of sample should be positive: %d<0" % (n_sample)
+        assert n_realization > 0, \
+            "The number of realization should be positive: %d<0" % (n_realization)
+        dim = self.dim
+        n_pairs = int(dim*(dim-1) / 2)
+
+        # Gaussian distribution
         norm_dist = ot.Normal(dim)
 
         # Independent samples
@@ -84,7 +138,6 @@ class SobolIndices(BaseIndices):
         all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
         all_output_sample_2t1 = np.zeros((dim, n_sample, n_realization))
         
-        n_pairs = int(dim*(dim-1) / 2)
         for i in range(dim):
             # Copy of the input dstribution
             margins = [ot.Distribution(self._input_distribution.getMarginal(j)) for j in range(dim)]
@@ -141,9 +194,59 @@ class SobolIndices(BaseIndices):
         self.n_realization = n_realization
         self.model = model
 
-    def compute_indices(self, n_boot, estimator, indice_type='classic'):
+    def compute_indices(self, n_boot=500, estimator='soboleff2', indice_type='classic'):
+        """Computes the Sobol' indices with the pick and freeze strategy.
+        
+        The method computes the indices from the previously created samples.
+
+        Parameters
+        ----------            
+        n_boot : int, optional (default=500)
+            The bootstrap sample size.
+            
+        estimator : str, optional (default='soboleff2')
+            The estimator method for the pick and freeze strategy. Available
+            estimators :
+                
+            - 'sobol': initial pick and freeze from [1],
+            - 'sobol2002': from [2],
+            - 'sobol2007': from [3],
+            - 'soboleff1': first estimator of [4],
+            - 'soboleff2': second estimator of [4],
+            - 'sobolmara': from [5],
+            
+        indice_type : str, optional (default='classic')
+            The type of indices to compute. It can be:
+                
+            - 'classic': the pick and freeze for independent variables,
+            - 'ind': the independent Sobol' indices,
+            - 'full': the full Sobol' indices.
+            
+        Returns
+        -------
+        results : SensitivityResults instance
+            The computed Sobol' indices.
+            
+        References
+        ----------
+        .. [1] Sobol 93
+        .. [2] Saltelli & al. 2002
+        .. [3] Sobol 2007
+        .. [4] Janon
+        .. [5] TODO: check the sources
         """
-        """
+        assert isinstance(n_boot, int), \
+            "The number of bootstrap should be an integer"
+        assert isinstance(estimator, str), \
+            "The estimator name should be an string" 
+        assert isinstance(indice_type, str), \
+            "The type of indices name should be an string" 
+        assert n_boot > 0, \
+            "The number of boostrap should be positive: %d<0" % (n_boot)
+        assert estimator in _ESTIMATORS, "Unknow estimator %s" % (estimator)
+        assert indice_type in _DELTA_INDICES, \
+            "Unknow of indice: %s" % (indice_type)
+        
         dim = self.dim
         n_sample = self.n_sample
         n_realization = self.n_realization
@@ -151,14 +254,13 @@ class SobolIndices(BaseIndices):
         first_indices = np.zeros((dim, n_boot, n_realization))
         total_indices = np.zeros((dim, n_boot, n_realization))
 
+        dev = _DELTA_INDICES[indice_type]
         if indice_type in ['classic', 'full']:
-            dev = 0
             sample_Y2t = self.all_output_sample_2t
         elif indice_type == 'ind':
-            dev = 1
             sample_Y2t = self.all_output_sample_2t1
         else:
-            raise ValueError('Unknow type of indice {0}'.format(type))
+            raise ValueError('Unknow type of indice: {0}'.format(indice_type))
 
         # TODO: cythonize this, takes too much memory when n_boot is large
         boot_idx = None
@@ -318,5 +420,11 @@ _ESTIMATORS = {
     'sobol2007': sobol2007_estimator,
     'soboleff1': soboleff1_estimator,
     'soboleff2': soboleff2_estimator,
-    'sobolmara': sobolmara_estimator,
+    'sobolmara': sobolmara_estimator
     }
+
+_DELTA_INDICES = {
+        'classic': 0,
+        'full': 0,
+        'ind': 1,
+        }

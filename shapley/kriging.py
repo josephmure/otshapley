@@ -1,49 +1,11 @@
 import numpy as np
-import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
-from .indices import BaseIndices, SensitivityResults
-from .model import ProbabilisticModel, MetaModel
+
+from .model import MetaModel
 from .utils import test_q2
 
 MAX_N_SAMPLE = 15000
-
-class KrigingIndices(BaseIndices):
-    """Estimate indices using a kriging based metamodel.
-
-    Parameters
-    ----------
-    input_distribution : ot.DistributionImplementation,
-        And OpenTURNS distribution object.
-    """
-    def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
-        
-    def build_meta_model(self, model, n_sample=100, basis_type='linear', kernel='matern', sampling='lhs', library='OT'):
-        """Build the Kriging model.
-
-        Parameters
-        ----------
-        model : callable,
-            The model function to approximate.
-        n_sample : int,
-            The sampling size.
-        basis_type : str or ot.CovarianceModelImplementation,
-            The type of basis to use for the kriging model.
-        kernel : str,
-            The kernel to use.
-        sampling : str,
-            The sampling method to use.
-
-        Returns
-        -------
-        meta_model : callable,
-            A stochastic function of the built kriging model.
-        """
-        meta_model = KrigingModel(model=model, input_distribution=self._input_distribution)
-        meta_model.generate_sample(n_sample=n_sample, sampling=sampling)
-        meta_model.build(kernel=kernel, basis_type=basis_type, library=library)
-        return meta_model
 
 
 class KrigingModel(MetaModel):
@@ -58,7 +20,6 @@ class KrigingModel(MetaModel):
     """
     def __init__(self, model, input_distribution):
         MetaModel.__init__(self, model=model, input_distribution=input_distribution)
-
         self._basis = None
         self._covariance = None
         self._input_sample = None

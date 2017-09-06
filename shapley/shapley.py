@@ -121,7 +121,7 @@ class ShapleyIndices(BaseIndices):
     """Shappley indices object estimator.
     """
     def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
+        BaseIndices.__init__(self, input_distribution)
 
     def build_sample(self, model, n_perms, Nv, No, Ni, n_realization=1):
         """
@@ -175,6 +175,7 @@ class ShapleyIndices(BaseIndices):
         self.No = No
         self.Ni = Ni
         self.n_realization = n_realization
+        self.model = model
 
     def compute_indices(self, n_boot):
         """
@@ -182,7 +183,6 @@ class ShapleyIndices(BaseIndices):
         dim = self.dim
         Nv = self.Nv
         No = self.No
-        Ni = self.Ni
         n_realization = self.n_realization
         perms = self.perms
         estimation_method = self.estimation_method
@@ -252,6 +252,11 @@ class ShapleyIndices(BaseIndices):
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
         first_indices = first_indices.reshape(dim, n_boot, n_realization)
     
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices,
-                                     shapley_indices=shapley_indices)
+        results = SensitivityResults(
+                first_indices=first_indices, 
+                total_indices=total_indices,
+                shapley_indices=shapley_indices,
+                true_first_indices=self.model.first_sobol_indices,
+                true_total_indices=self.model.total_sobol_indices,
+                true_shapley_indices=self.model.shapley_indices)
         return results
