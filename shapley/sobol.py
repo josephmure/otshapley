@@ -41,7 +41,7 @@ class SobolIndices(BaseIndices):
             The number of realization of the meta-model.            
         """
         
-        assert model is callable, "The model should be a function"
+        assert callable(model), "The model should be a function"
         assert isinstance(n_sample, int), \
             "The number of sample should be an integer"
         assert isinstance(n_realization, int), \
@@ -114,7 +114,7 @@ class SobolIndices(BaseIndices):
             methods for global sensitivity analysis of model output with dependent inputs
             https://hal.archives-ouvertes.fr/hal-01182302/file/Mara15EMS_HAL.pdf
         """
-        assert model is callable, "The model should be a function"
+        assert callable(model), "The model should be a function"
         assert isinstance(n_sample, int), \
             "The number of sample should be an integer"
         assert isinstance(n_realization, int), \
@@ -193,7 +193,7 @@ class SobolIndices(BaseIndices):
         self.n_sample = n_sample
         self.n_realization = n_realization
         self.model = model
-
+        
     def compute_indices(self, n_boot=500, estimator='soboleff2', indice_type='classic'):
         """Computes the Sobol' indices with the pick and freeze strategy.
         
@@ -293,6 +293,8 @@ class SobolIndices(BaseIndices):
         return results
 
 
+
+# TODO: cythonize this, it takes too much memory in vectorial
 def sobol_indices(Y1, Y2, Y2t, boot_idx=None, estimator='sobol2002'):
     """Compute the Sobol indices from the to
 
@@ -401,15 +403,28 @@ def soboleff2_estimator(Y1, Y2, Y2t):
 def sobolmara_estimator(Y1, Y2, Y2t):
     """
     """
-    diff = Y2t - Y2
-    var = v(Y1)
-
-
-    var_indiv = m(Y1 * diff)
-    var_total = m(diff ** 2)
-
-    first_indice = var_indiv / var
-    total_indice = var_total / var / 2.
+    if True:
+        diff = Y2t - Y2
+        var = v(Y1)
+    
+        var_indiv = m(Y1 * diff)
+        var_total = m(diff ** 2)
+    
+        first_indice = var_indiv / var
+        total_indice = var_total / var / 2.
+    else:
+        n_sample, n_boot, n_realization = Y2.shape
+        first_indice = np.zeros((n_boot, n_realization))
+        total_indice = np.zeros((n_boot, n_realization))
+        for i in range(n_realization):
+            diff = Y2t[:, :, i] - Y2[:, :, i]
+            var = v(Y1[:, :, i])
+        
+            var_indiv = m(Y1[:, :, i] * diff)
+            var_total = m(diff ** 2)
+        
+            first_indice[:, i] = var_indiv / var
+            total_indice[:, i] = var_total / var / 2.
 
     return first_indice, total_indice
 

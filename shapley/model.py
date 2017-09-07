@@ -98,8 +98,6 @@ class ProbabilisticModel(Model):
     def first_sobol_indices(self):
         """The true first-order sobol indices.
         """        
-        if self._first_sobol_indices is None:
-            print ('There is no true first order sobol indices')
         return self._first_sobol_indices
 
     @first_sobol_indices.setter
@@ -113,8 +111,6 @@ class ProbabilisticModel(Model):
     def total_sobol_indices(self):
         """The true total sobol indices.
         """
-        if self._total_sobol_indices is None:
-            print ('There is no true total sobol indices')
         return self._total_sobol_indices
 
     @total_sobol_indices.setter
@@ -128,8 +124,6 @@ class ProbabilisticModel(Model):
     def shapley_indices(self):
         """The true shapley indices.
         """
-        if self._shapley_indices is None:
-            print ('There is no true shapley indices.')
         return self._shapley_indices
 
     @shapley_indices.setter
@@ -206,14 +200,9 @@ class ProbabilisticModel(Model):
         """
         assert isinstance(n_sample, int), "Sampling number must be an integer"
         assert isinstance(sampling, str), "Sampling must be a string"
-
-        if sampling == 'lhs':
-            lhs = ot.LHSExperiment(self._input_distribution, n_sample)
-            input_sample = np.asarray(lhs.generate())
-        elif sampling == 'monte-carlo':
-            input_sample = np.asarray(self._input_distribution.getSample(n_sample))
-        else:
-            raise ValueError('Unknow sampling: {0}'.format(sampling))
+        
+        dist = self._input_distribution
+        input_sample = sample_dist(dist, n_sample, sampling)
 
         return input_sample
 
@@ -282,25 +271,8 @@ class MetaModel(ProbabilisticModel):
         sampling : str,
             The sampling method to use.
         """
-        dist = ot.ComposedDistribution(self._input_distribution)
-
-        if sampling_type == 'uniform':
-            new_margins = []
-            for marginal in self.margins:
-                up = marginal.computeQuantile(alpha)[0]
-                down = marginal.computeQuantile(1. - alpha)[0]
-                new_margins.append(ot.Uniform(down, up))
-            dist = ot.ComposedDistribution(new_margins)
-        elif sampling_type == 'independent':
-            dist.setCopula(ot.IndependentCopula(self.dim))
-
-        if sampling == 'lhs':
-            lhs = ot.LHSExperiment(dist, n_sample)
-            input_sample = lhs.generate()
-        elif sampling == 'monte-carlo':
-            input_sample = dist.getSample(n_sample)
-        else:
-            raise ValueError('Unknow sampling: {0}'.format(sampling))
+        dist = change_distribution(self._input_distribution, sampling_type, alpha)
+        input_sample = sample_dist(dist, n_sample, sampling)
 
         self.input_sample = np.asarray(input_sample)
         self.output_sample = self.true_model(input_sample)
@@ -330,10 +302,12 @@ class MetaModel(ProbabilisticModel):
         assert n_sample == self._n_sample, "Samples should be the same sizes: %d != %d" % (n_sample, self._n_samples)
         self._output_sample = sample
         
-    def compute_score_q2_cv(self, n_sample=100, sampling='lhs'):
+    def compute_score_q2_cv(self, n_sample=100, sampling='lhs', sampling_type='classic', alpha=0.99):
         """Cross Validation estimation of Q2.
-        """
-        x = self.get_input_sample(n_sample, sampling=sampling)
+        """        
+        dist = change_distribution(self._input_distribution, sampling_type, alpha)
+        x = sample_dist(dist, n_sample, sampling)
+        
         ytrue = self.true_model(x)
         ypred = self.predict(x)
         q2 = q2_cv(ytrue, ypred)
@@ -343,3 +317,50 @@ class MetaModel(ProbabilisticModel):
     def __call__(self, X, n_estimators):
         y = self._model_func(X, n_estimators)
         return y
+    
+def get_margins(dist):
+    """
+    """
+    dim = dist.getDimension()
+    margins = []
+    for i in range(dim):
+        margins.append(dist.getMarginal(i))
+    return margins
+
+def sample_dist(dist, n_sample, sampling):
+    """
+    """
+    if sampling == 'lhs':
+        lhs = ot.LHSExperiment(dist, n_sample)
+        input_sample = lhs.generate()
+    elif sampling == 'monte-carlo':
+        input_sample = dist.getSample(n_sample)
+    else:
+        raise ValueError('Unknow sampling: {0}'.format(sampling))
+    return input_sample
+
+def change_distribution(dist, sampling_type, alpha):
+    """Slightly change the distribution for a custom sampling.
+    
+    Parameters
+    ----------
+    
+    """
+    dist = ot.ComposedDistribution(dist)
+    if sampling_type == 'uniform':
+        margins = get_margins(dist)
+        new_margins = []
+        for marginal in margins:
+            up = marginal.computeQuantile(alpha)[0]
+            down = marginal.computeQuantile(1. - alpha)[0]
+            new_margins.append(ot.Uniform(down, up))
+        dist = ot.ComposedDistribution(new_margins)
+    elif sampling_type == 'independent':
+        dim = dist.getDimension()
+        dist.setCopula(ot.IndependentCopula(dim))
+    elif sampling_type == 'classic':
+        pass
+    else:
+        raise ValueError('Unknow sampling type')
+        
+    return dist

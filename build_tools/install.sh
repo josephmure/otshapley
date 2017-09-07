@@ -32,4 +32,10 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install coverage coveralls pytest pytest-cov
 fi
 
+pushd .
+cd
+git clone https://github.com/scikit-optimize/scikit-optimize
+pip install scikit-optimize
+popd
+
 python setup.py install

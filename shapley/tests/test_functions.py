@@ -3,6 +3,11 @@ import openturns as ot
 
 from shapley.model import ProbabilisticModel
 
+def is_independent(dist):
+    """
+    """
+    return np.all(np.tril(np.asarray(dist.getCorrelation()), k=-1) == 0.)
+
 class Ishigami(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function
     for sensitivity analysis.
@@ -19,6 +24,33 @@ class Ishigami(ProbabilisticModel):
             total_sobol_indices=[0.56, 0.44, 0.24],
             shapley_indices=[0.437, 0.441, 0.12])
         self.name = 'Ishigami'
+        
+    @ProbabilisticModel.first_sobol_indices.getter
+    def first_sobol_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.314, 0.442, 0.]
+        else:
+            return None
+        
+    @ProbabilisticModel.total_sobol_indices.getter
+    def total_sobol_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.56, 0.44, 0.24]
+        else:
+            return None        
+        
+    @ProbabilisticModel.shapley_indices.getter
+    def shapley_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.437, 0.441, 0.12]
+        else:
+            return None
 
 
 class AdditiveGaussian(ProbabilisticModel):
