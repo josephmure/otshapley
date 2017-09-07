@@ -1,10 +1,7 @@
 import numpy as np
 import openturns as ot
 
-from .base import Base
-from .kriging import KrigingIndices
-from .base import SensitivityResults
-
+from .indices import BaseIndices, SensitivityResults
 
 
 def condMVN_new(cov, dependent_ind, given_ind, X_given):
@@ -120,18 +117,13 @@ def sub_sampling(distribution, n_sample, idx):
     return sample
 
 
-class ShapleyIndices(Base):
+class ShapleyIndices(BaseIndices):
     """Shappley indices object estimator.
     """
     def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
+        BaseIndices.__init__(self, input_distribution)
 
-    def build_mc_sample(self, model, n_perms=None, Nv=10000, No=1000, Ni=3):
-        """
-        """
-        return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
-
-    def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
+    def build_sample(self, model, n_perms, Nv, No, Ni, n_realization=1):
         """
         """
         dim = self.dim
@@ -183,6 +175,7 @@ class ShapleyIndices(Base):
         self.No = No
         self.Ni = Ni
         self.n_realization = n_realization
+        self.model = model
 
     def compute_indices(self, n_boot):
         """
@@ -190,7 +183,6 @@ class ShapleyIndices(Base):
         dim = self.dim
         Nv = self.Nv
         No = self.No
-        Ni = self.Ni
         n_realization = self.n_realization
         perms = self.perms
         estimation_method = self.estimation_method
@@ -260,20 +252,11 @@ class ShapleyIndices(Base):
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
         first_indices = first_indices.reshape(dim, n_boot, n_realization)
     
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices,
-                                     shapley_indices=shapley_indices)
+        results = SensitivityResults(
+                first_indices=first_indices, 
+                total_indices=total_indices,
+                shapley_indices=shapley_indices,
+                true_first_indices=self.model.first_sobol_indices,
+                true_total_indices=self.model.total_sobol_indices,
+                true_shapley_indices=self.model.shapley_indices)
         return results
-
-
-class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
-    """Shappley indices object estimator.
-    """
-    def __init__(self, input_distribution):
-        KrigingIndices.__init__(self, input_distribution)
-        ShapleyIndices.__init__(self, input_distribution)
-
-        
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
-        """
-        """
-        return self._build_mc_sample(model, n_perms=n_perms, Nv=Nv, No=No, Ni=Ni, n_realization=n_realization)

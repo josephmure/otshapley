@@ -1,47 +1,11 @@
 import numpy as np
-import pandas as pd
 import openturns as ot
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
-from .base import Base, ProbabilisticModel, SensitivityResults, MetaModel
 
-MAX_N_SAMPLE = 2000
+from .model import MetaModel
+from .utils import test_q2
 
-class KrigingIndices(Base):
-    """Estimate indices using a kriging based metamodel.
-
-    Parameters
-    ----------
-    input_distribution : ot.DistributionImplementation,
-        And OpenTURNS distribution object.
-    """
-    def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
-        
-    def build_meta_model(self, model, n_sample=100, basis_type='linear', kernel='matern', sampling='lhs', library='OT'):
-        """Build the Kriging model.
-
-        Parameters
-        ----------
-        model : callable,
-            The model function to approximate.
-        n_sample : int,
-            The sampling size.
-        basis_type : str or ot.CovarianceModelImplementation,
-            The type of basis to use for the kriging model.
-        kernel : str,
-            The kernel to use.
-        sampling : str,
-            The sampling method to use.
-
-        Returns
-        -------
-        meta_model : callable,
-            A stochastic function of the built kriging model.
-        """
-        meta_model = KrigingModel(model=model, input_distribution=self._input_distribution)
-        meta_model.generate_sample(n_sample=n_sample, sampling=sampling)
-        meta_model.build(kernel=kernel, basis_type=basis_type, library=library)
-        return meta_model
+MAX_N_SAMPLE = 15000
 
 
 class KrigingModel(MetaModel):
@@ -56,7 +20,6 @@ class KrigingModel(MetaModel):
     """
     def __init__(self, model, input_distribution):
         MetaModel.__init__(self, model=model, input_distribution=input_distribution)
-
         self._basis = None
         self._covariance = None
         self._input_sample = None
@@ -81,18 +44,18 @@ class KrigingModel(MetaModel):
             self.kriging_result = kriging_algo.getResult()
 
             # The resulting meta_model function
-            def meta_model(X, n_realization=1):
+            def meta_model(X, n_realization):
                 n_sample = X.shape[0]
-                if n_sample < MAX_N_SAMPLE:
+                if n_sample <= MAX_N_SAMPLE:
                     kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
                     results = np.asarray(kriging_vector.getSample(n_realization)).T
                 else:
                     state = np.random.randint(0, 1E7)
                     for max_n in range(MAX_N_SAMPLE, 1, -1):
                         if n_sample % max_n == 0:
-                            print(max_n)
                             break
                     results = []
+                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
                     for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
                         ot.RandomGenerator.SetSeed(state)
                         kriging_vector = ot.KrigingRandomVector(self.kriging_result, X_p)
@@ -122,27 +85,24 @@ class KrigingModel(MetaModel):
                 else:
                     print('Sample size is too large. A loop is done to save memory.')
                     state = np.random.randint(0, 1E7)
-                    
+
                     for max_n in range(MAX_N_SAMPLE, 1, -1):
                         if n_sample % max_n == 0:
-                            print(max_n)
                             break
                     results = []
+                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
                     for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
                         results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))
                         print('i_p:', i_p)
                     results = np.concatenate(results)
                 return results
+            
             predict = kriging_result.predict
         else:
             raise ValueError('Unknow library {0}'.format(library))
 
         self.predict = predict
         self.model_func = meta_model
-
-    def __call__(self, X, n_realization=1):
-        y = self._model_func(X, n_realization)
-        return y
 
     @property
     def covariance(self):
@@ -171,51 +131,6 @@ class KrigingModel(MetaModel):
         self.score_q2_loo = q2
         return q2
 
-    def compute_score_q2_cv(self, n_sample=100, sampling='lhs'):
-        """Cross Validation estimation of Q2.
-        """
-        x = self.get_input_sample(n_sample, sampling=sampling)
-        ytrue = self.true_model(x)
-        ypred = self.predict(x)
-        q2 = q2_cv(ytrue, ypred)
-        self.score_q2_cv = q2
-        return q2
-
-def test_q2(ytrue, ypred):
-    """Compute the Q2 test.
-
-    Parameters
-    ----------
-    ytrue : array,
-        The true output values.
-    ypred : array,
-        The predicted output values.
-
-    Returns
-    -------
-    q2 : float,
-        The estimated Q2.
-    """
-    ymean = ytrue.mean()
-    up = ((ytrue - ypred)**2).sum()
-    down = ((ytrue - ymean)**2).sum()
-    q2 = 1. - up / down
-    return q2
-
-
-def q2_cv(ytrue, ypred):
-    """Cross validation Q2 test.
-
-    Parameters
-    ----------
-    ytrue : array,
-        The true values.
-    """
-       
-    ytrue = ytrue.squeeze()
-    ypred = ypred.squeeze()
-    q2 = max(0., test_q2(ytrue, ypred))                     ## thus useless ?
-    return q2
 
 def q2_loo(input_sample, output_sample, library, covariance, basis=None):
     """Leave One Out estimation of Q2.

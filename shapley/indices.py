@@ -1,194 +1,320 @@
 import openturns as ot
 import numpy as np
+import pandas as pd
 
-from .base import Base, SensitivityResults
+from .utils import DF_NAMES
 
+class BaseIndices(object):
+    """Base class for sensitivity indices.
 
-class Indices(Base):
-    """Template APIs of the sensitivity indices computation.
+    Parameters
+    ----------
+    input_distribution : ot.DistributionImplementation,
+        And OpenTURNS distribution object.
     """
     def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
+        self.input_distribution = input_distribution
+        self.indice_func = None
 
-    def build_mc_sample(self, model, n_sample, n_realization):
-        """Build the Monte-Carlo samples.
+    @property
+    def input_distribution(self):
+        """The OpenTURNS input distribution.
+        """
+        return self._input_distribution
 
-        Parameters
-        ----------
-        model : callable,
-            The model function.
-        n_sample : int,
-            The sampling size of Monte-Carlo
-        n_realization : int,
-            The number of Gaussian Process realizations.
+    @input_distribution.setter
+    def input_distribution(self, dist):
+        assert isinstance(dist, ot.DistributionImplementation), \
+            "The distribution should be an OpenTURNS Distribution object. Given %s" % (type(dist))
+        self._input_distribution = dist
+
+    @property
+    def dim(self):
+        """The input dimension.
+        """
+        return self._input_distribution.getDimension()
+
+    @property
+    def indice_func(self):
+        """Function to estimate the indice.
+        """
+        return self._indice_func
+
+    @indice_func.setter
+    def indice_func(self, func):
+        assert callable(func) or func is None, \
+            "Indice function should be callable or None."
+
+        self._indice_func = func
+
+
+class SensitivityResults(object):
+    """
+    """
+    def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
+                 true_total_indices=None, true_shapley_indices=None):
+        self.dim = None
+        self.n_boot = None
+        self.n_realization = None
+        self._var_names = None
+        self.first_indices = first_indices
+        self.total_indices = total_indices
+        self.shapley_indices = shapley_indices
+        self.true_first_indices = true_first_indices
+        self.true_total_indices = true_total_indices
+        self.true_shapley_indices = true_shapley_indices
+
+    @property
+    def var_names(self):
+        """
+        """
+        if self._var_names is None:
+            dim = self.dim
+            columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+            return columns
+        else:
+            return self._var_names
+
+    @var_names.setter
+    def var_names(self, names):
+        self._var_names = names
+
+    @property
+    def true_indices(self):
+        """The true sensitivity results.
+        """
+        data = {}
+        if self.true_first_indices is not None:
+            data['True first'] = self.true_first_indices
+        if self.true_total_indices is not None:
+            data['True total'] = self.true_total_indices
+        if self.true_shapley_indices is not None:
+            data['True shapley'] = self.true_shapley_indices
+            
+        if data != {}:
+            data[DF_NAMES['var']] = ['$X_{%d}$' % (i+1) for i in range(self.dim)]
+            df = pd.DataFrame(data)
+            indices = pd.melt(df, id_vars=[DF_NAMES['var']], var_name=DF_NAMES['ind'], value_name=DF_NAMES['val'])
+            return indices
+
+    @property
+    def first_indices(self):
+        """The first sobol sensitivity estimation.
+        """
+        if self._first_indices is not None:
+            return self._first_indices.reshape(self.dim, -1).mean(axis=1)
+
+    @first_indices.setter
+    def first_indices(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._first_indices = indices
+
+    @property
+    def total_indices(self):
+        """The total Sobol sensitivity indicies estimations.
+        """
+        if self._total_indices is not None:
+            return self._total_indices.reshape(self.dim, -1).mean(axis=1)
+
+    @total_indices.setter
+    def total_indices(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._total_indices = indices
+
+    @property
+    def shapley_indices(self):
+        """The Shapley indices estimations.
+        """
+        if self._shapley_indices is not None:
+            return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
+
+    @shapley_indices.setter
+    def shapley_indices(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+            self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
+        self._shapley_indices = indices
+
+    def _check_indices(self, indices):
+        """Get the shape of the indices result matrix and check if the shape is correct with history.
+        """
+        dim, n_boot, n_realization = get_shape(indices)
+        if self.dim is not None:
+            assert self.dim == dim, \
+                "Dimension should be the same as for the other indices. %d ! %d" % (self.dim, dim)
+        if self.n_boot is not None:
+            assert self.n_boot == n_boot, \
+                "Bootstrap size should be the same as for the other indices. %d ! %d" % (self.n_boot, n_boot)
+        if self.n_realization is not None:
+            assert self.n_realization == n_realization, \
+                "Number of realizations should be the same as for the other indices. %d ! %d" % (self.n_realization, n_realization)
+        return dim, n_boot, n_realization
+
+    @property
+    def df_indices(self):
+        """The dataframe of the sensitivity results
         """
         dim = self.dim
-        
-        # Simulate the two independent samples
-        input_sample_1 = np.asarray(self._input_distribution.getSample(n_sample))
-        input_sample_2 = np.asarray(self._input_distribution.getSample(n_sample))
-        
-        # The modified samples for each dimension
-        
-        all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
-        if n_realization == 1:
-            output_sample_1 = model(input_sample_1)
-            output_sample_2 = model(input_sample_2)
-            output_sample_1 = np.c_[[output_sample_1]*dim].reshape(dim, n_sample, n_realization)   ## ? *dim
-            output_sample_2 = np.c_[[output_sample_2]*dim].reshape(dim, n_sample, n_realization)
-        else:
-            output_sample_1 = np.zeros((dim, n_sample, n_realization))
-            output_sample_2 = np.zeros((dim, n_sample, n_realization))
+        feat_indices = 'Indices'
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+        all_df = []
+        if self._first_indices is not None:
+            df_first = panel_data(self._first_indices, columns=columns)
+            df_first_melt = pd.melt(df_first.T, value_name=DF_NAMES['val'])
+            df_first_melt[feat_indices] = DF_NAMES['1st']
+            all_df.append(df_first_melt)
+        if self._total_indices is not None:
+            df_total = panel_data(self._total_indices, columns=columns)
+            df_total_melt = pd.melt(df_total.T, value_name=DF_NAMES['val'])
+            df_total_melt[feat_indices] = DF_NAMES['tot']
+            all_df.append(df_total_melt)
+        if self._shapley_indices is not None:
+            df_shapley = panel_data(self._shapley_indices, columns=columns)
+            df_shapley_melt = pd.melt(df_shapley.T, value_name=DF_NAMES['val'])
+            df_shapley_melt[feat_indices] = DF_NAMES['shap']
+            all_df.append(df_shapley_melt)
 
-        X1 = input_sample_1
-        X2 = input_sample_2
-        for i in range(dim):
-            X2t = X2.copy()
-            X2t[:, i] = X1[:, i]
+        df = pd.concat(all_df)
 
-            if n_realization == 1:
-                all_output_sample_2t[i] = model(X2t).reshape(n_sample, n_realization)
-            else:
-                output_sample_i = model(np.r_[X1, X2, X2t], n_realization)          ##model : function two parameters?
-                output_sample_1[i] = output_sample_i[:n_sample, :]
-                output_sample_2[i] = output_sample_i[n_sample:2*n_sample, :]
-                all_output_sample_2t[i] = output_sample_i[2*n_sample:, :]
-            
-        self.all_output_sample_1 = output_sample_1
-        self.all_output_sample_2 = output_sample_2
-        self.all_output_sample_2t = all_output_sample_2t
-        self.n_sample = n_sample
-        self.n_realization = n_realization
+        return df
     
-    def build_uncorrelated_mc_sample(self, model, n_sample, n_realization):
-        """         ## add some comment here too
-        """
-        dim = self.dim
-
-        # Normal distribution
-        norm_dist = ot.Normal(dim)
-
-        # Independent samples
-        U_1 = np.asarray(norm_dist.getSample(n_sample))
-        U_2 = np.asarray(norm_dist.getSample(n_sample))
-
-        all_output_sample_1 = np.zeros((dim, n_sample, n_realization))
-        all_output_sample_2 = np.zeros((dim, n_sample, n_realization))
-        all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
-        all_output_sample_2t1 = np.zeros((dim, n_sample, n_realization))
-        
-        n_pairs = int(dim*(dim-1) / 2)
-        for i in range(dim):
-            # Copy of the input dstribution
-            margins = [ot.Distribution(self._input_distribution.getMarginal(j)) for j in range(dim)]
-            copula = ot.Copula(self._input_distribution.getCopula())
-
-            # 1) Pick and Freeze
-            U_3_i = U_2.copy()
-            U_3_i[:, 0] = U_1[:, 0]
-            U_4_i = U_2.copy()
-            U_4_i[:, -1] = U_1[:, -1]
-            
-            # 2) Permute the margins and the copula
-            order_i = np.roll(range(dim), -i)
-            order_i_inv = np.roll(range(dim), i)
-            order_cop = np.roll(range(n_pairs), i)
-            margins_i = [margins[j] for j in order_i]
-            params_i = np.asarray(copula.getParameter())[order_cop]
-
-            copula.setParameter(params_i)
-            dist = ot.ComposedDistribution(margins_i, copula)
-
-            # 3) Inverse Transformation
-            tmp = dist.getInverseIsoProbabilisticTransformation()
-            inv_rosenblatt_transform_i = lambda u: np.asarray(tmp(u))
-
-            X_1_i = inv_rosenblatt_transform_i(U_1)
-            X_2_i = inv_rosenblatt_transform_i(U_2)
-            X_3_i = inv_rosenblatt_transform_i(U_3_i)
-            X_4_i = inv_rosenblatt_transform_i(U_4_i)
-            assert X_1_i.shape[1] == dim, "Wrong dimension"
-
-            X_1_i = X_1_i[:, order_i_inv]
-            X_2_i = X_2_i[:, order_i_inv]
-            X_3_i = X_3_i[:, order_i_inv]
-            X_4_i = X_4_i[:, order_i_inv]
-            
-            # 4) Model evaluations
-            X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]
-            if n_realization == 1:
-                output_sample_i = model(X).reshape(4*n_sample, n_realization)
-            else:
-                output_sample_i = model(X, n_realization)
-
-            all_output_sample_1[i] = output_sample_i[:n_sample]
-            all_output_sample_2[i] = output_sample_i[n_sample:2*n_sample]
-            all_output_sample_2t[i] = output_sample_i[2*n_sample:3*n_sample]
-            all_output_sample_2t1[i] = output_sample_i[3*n_sample:]
-
-        self.all_output_sample_1 = all_output_sample_1
-        self.all_output_sample_2 = all_output_sample_2
-        self.all_output_sample_2t = all_output_sample_2t
-        self.all_output_sample_2t1 = all_output_sample_2t1
-        self.n_sample = n_sample
-        self.n_realization = n_realization
-
-    def compute_indices(self, n_boot, estimator, calculation_method):
-        """
-        """
-        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='classic')
-        return results
-
-    def compute_full_indices(self, n_boot, estimator, calculation_method):
-        """
-        """
-        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='full')
-        return results
-
-    def compute_ind_indices(self, n_boot, estimator, calculation_method):
-        """
-        """
-        results = self.__compute_indice(n_boot, estimator, calculation_method, indice_type='ind')
-        return results
-
-    def __compute_indice(self, n_boot, estimator, calculation_method, indice_type):
+    @property
+    def full_df_indices(self):
         """
         """
         dim = self.dim
-        n_sample = self.n_sample
-        n_realization = self.n_realization
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+        df_first = panel_data(self._first_indices, columns=columns)
+        df_total = panel_data(self._total_indices, columns=columns)
+        df_first[DF_NAMES['ind']] = DF_NAMES['1st']
+        df_total[DF_NAMES['ind']] = DF_NAMES['tot']
 
-        first_indices = np.zeros((dim, n_boot, n_realization))
-        total_indices = np.zeros((dim, n_boot, n_realization))
+        df = pd.concat([df_first, df_total])
+        return df
 
-        if indice_type in ['classic', 'full']:
-            dev = 0
-            sample_Y2t = self.all_output_sample_2t
-        elif indice_type == 'ind':
-            dev = 1
-            sample_Y2t = self.all_output_sample_2t1
+    @property
+    def full_first_indices(self):
+        """
+        """
+        if np.isnan(self._first_indices).all():
+            raise ValueError('The value is not registered')
+        if self.n_realization == 1:
+            return self._first_indices[:, :, 0]
         else:
-            raise ValueError('Unknow type of indice {0}'.format(type))
+            return self._first_indices
+    
+    @property
+    def full_total_indices(self):
+        """
+        """
+        if np.isnan(self._total_indices).all():
+            raise ValueError('The value is not registered')
+        if self.n_realization == 1:
+            return self._total_indices[:, :, 0]
+        else:
+            return self._total_indices
 
-        boot_idx = None
-        for i in range(dim):
-            if n_boot > 1:
-                boot_idx = np.zeros((n_boot, n_sample), dtype=int)
-                boot_idx[0] = range(n_sample)
-                boot_idx[1:] = np.random.randint(0, n_sample, size=(n_boot-1, n_sample))
+    @property
+    def full_shapley_indices(self):
+        """
+        """
+        if np.isnan(self._shapley_indices).all():
+            raise ValueError('The value is not registered')
+        if self.n_realization == 1:
+            return self._shapley_indices[:, :, 0]
+        else:
+            return self._shapley_indices
 
-            Y1 = self.all_output_sample_1[i]
-            Y2 = self.all_output_sample_2[i]
-            Y2t = sample_Y2t[i]
-            first, total = self.indice_func(Y1, Y2, Y2t, boot_idx=boot_idx, estimator=estimator)
-            if first is not None:
-                first = first.reshape(n_boot, n_realization)
-            if total is not None:
-                total = total.reshape(n_boot, n_realization)
+    @property
+    def full_df_first_indices(self):
+        """
+        """
+        dim = self.dim
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+        df = panel_data(self._first_indices, columns=columns)
+        return df
 
-            first_indices[i-dev], total_indices[i-dev] = first, total
+    @property
+    def full_df_total_indices(self):
+        """
+        """
+        dim = self.dim
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+        df = panel_data(self._total_indices, columns=columns)
+        return df
 
-        if np.isnan(total_indices).all():
-            total_indices = None
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices, calculation_method=calculation_method)
-        return results
+    @property
+    def full_df_shapley_indices(self):
+        """
+        """
+        dim = self.dim
+        columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+        df = panel_data(self._shapley_indices, columns=columns)
+        return df
+
+    @property
+    def df_first_indices(self):
+        """
+        """
+        df = melt_kriging(self.full_df_first_indices)
+        return df
+
+    @property
+    def df_total_indices(self):
+        """
+        """
+        df = melt_kriging(self.full_df_total_indices)
+        return df
+
+    @property
+    def df_shapley_indices(self):
+        """
+        """
+        df = melt_kriging(self.full_df_shapley_indices)
+        return df
+
+
+def melt_kriging(df):
+    """
+    """
+    df_boot = df.mean(level=[DF_NAMES['var'], DF_NAMES['gp']])
+    df_boot_melt = pd.melt(df_boot.T, value_name=DF_NAMES['val'])
+    df_boot_melt['Error'] = DF_NAMES['gp']
+
+    df_kriging = df.mean(level=[DF_NAMES['var'], DF_NAMES['mc']])
+    df_kriging_melt = pd.melt(df_kriging.T, value_name=DF_NAMES['val'])
+    df_kriging_melt['Error'] = DF_NAMES['mc']
+
+    df = pd.concat([df_boot_melt.drop(DF_NAMES['gp'], axis=1), df_kriging_melt.drop(DF_NAMES['mc'], axis=1)])
+    return df
+
+
+def panel_data(data, columns=None):
+    """
+    """
+    dim, n_boot, n_realization = data.shape
+    names = (DF_NAMES['var'], DF_NAMES['mc'], DF_NAMES['gp'])
+    idx = [columns, range(n_boot), range(n_realization)]
+    index = pd.MultiIndex.from_product(idx, names=names)
+    df = pd.DataFrame(data.ravel(), columns=[DF_NAMES['val']], index=index)
+    return df
+
+
+def get_shape(indices):
+    """
+    """
+    if indices.ndim == 1:
+        dim = indices.shape[0]
+        n_boot = 1
+        n_realization = 1
+    elif indices.ndim == 2:
+        dim, n_boot = indices.shape
+        n_realization = 1
+    elif indices.ndim == 3:
+        dim, n_boot, n_realization = indices.shape
+
+    return dim, n_boot, n_realization
