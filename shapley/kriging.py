@@ -1,5 +1,6 @@
 import numpy as np
 import openturns as ot
+import gpflow
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 
 from .model import MetaModel
@@ -11,6 +12,8 @@ MAX_N_SAMPLE = 15000
 class KrigingModel(MetaModel):
     """Class to build a kriging model.
     
+    This class generate a Gaussian Process.
+    
     Parameters
     ----------
     model : callable,
@@ -18,7 +21,7 @@ class KrigingModel(MetaModel):
     input_distribution : ot.DistributionImplementation,
         The input distribution for the sampling of the observations.
     """
-    def __init__(self, model, input_distribution):
+    def __init__(self, model=None, input_distribution=None):
         MetaModel.__init__(self, model=model, input_distribution=input_distribution)
         self._basis = None
         self._covariance = None
@@ -30,11 +33,11 @@ class KrigingModel(MetaModel):
 
         Parameters
         ----------
-        library: str,
+        library: str, optional (default='sklearn')
             The used library to build the metamodel.
         """
-        assert self.input_sample is not None, "No input sample given"
-        assert self.output_sample is not None, "No output sample given"
+        assert self.input_sample is not None, "No input sample were given"
+        assert self.output_sample is not None, "No output sample were given"
         self.library = library
         if library == 'OT':
             self.covariance = kernel
@@ -98,6 +101,10 @@ class KrigingModel(MetaModel):
                 return results
             
             predict = kriging_result.predict
+        if library == 'GPflow':
+            k = gpflow.kernels.Matern52(1, lengthscales=0.3)
+            m = gpflow.gpr.GPR(self.input_sample, self.output_sample, kern=k)
+            m.likelihood.variance = 0.01
         else:
             raise ValueError('Unknow library {0}'.format(library))
 

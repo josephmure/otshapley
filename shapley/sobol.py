@@ -14,7 +14,7 @@ class SobolIndices(BaseIndices):
     Parameters
     ----------
     input_distribution : ot.DistributionImplementation,
-        And OpenTURNS distribution object.
+        An OpenTURNS distribution object.
     """
     def __init__(self, input_distribution):
         BaseIndices.__init__(self, input_distribution)
