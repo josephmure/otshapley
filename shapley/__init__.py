@@ -1,6 +1,7 @@
 from .sobol import SobolIndices
 from .shapley import ShapleyIndices
-
-from .utils import create_df_from_gp_indices, create_df_from_mc_indices
+from .kriging import KrigingModel
+from .forest import RandomForestModel
+from .model import MetaModel
 
 __all__ = ["SobolIndices", "ShapleyIndices"]

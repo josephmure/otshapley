@@ -101,10 +101,25 @@ class KrigingModel(MetaModel):
                 return results
             
             predict = kriging_result.predict
-        if library == 'GPflow':
-            k = gpflow.kernels.Matern52(1, lengthscales=0.3)
-            m = gpflow.gpr.GPR(self.input_sample, self.output_sample, kern=k)
-            m.likelihood.variance = 0.01
+        elif library == 'gpflow':
+            k = gpflow.kernels.Matern52(self._dim, lengthscales=1)
+            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=k)
+            gp.compile()
+            gp.optimize()
+
+            def meta_model(X, n_realization=1):
+                """
+                """
+                results = gp.predict_f_samples(X, n_realization)
+                return results.squeeze().T
+
+            def predict(X):
+                """
+                """
+                results = gp.predict_y(X)[0]
+                return results.squeeze()
+            self.gp_qflow = gp
+
         else:
             raise ValueError('Unknow library {0}'.format(library))
 
