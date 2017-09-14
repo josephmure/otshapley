@@ -28,13 +28,22 @@ class KrigingModel(MetaModel):
         self._input_sample = None
         self._output_sample = None
 
-    def build(self, library='sklearn', kernel='matern', basis_type='linear'):
+    def build(self, library='gpflow', kernel='matern', basis_type='linear'):
         """Build the Kriging model.
 
         Parameters
         ----------
-        library: str, optional (default='sklearn')
-            The used library to build the metamodel.
+        library: str, optional (default='gpflow')
+            The used library to build the meta-model. The available libraries
+            are :
+            - "gpflow": a binding between GPy and tensorflow,
+            - "sklearn": the classical scikit-learn library,
+            - "OT": the OpenTURNS library.
+            
+        kernel: str, optional (default='matern')
+            The kernel covariance of the Gaussian Process. The possible kernels
+            are :
+            - "matern": a matern 5/2.
         """
         assert self.input_sample is not None, "No input sample were given"
         assert self.output_sample is not None, "No output sample were given"
@@ -102,8 +111,9 @@ class KrigingModel(MetaModel):
             
             predict = kriging_result.predict
         elif library == 'gpflow':
-            k = gpflow.kernels.Matern52(self._dim, lengthscales=1)
-            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=k)
+            kernel = gpflow.kernels.Matern52(self._dim)
+            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=kernel)
+            gp.likelihood.variance = 0.
             gp.compile()
             gp.optimize()
 
