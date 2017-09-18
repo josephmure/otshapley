@@ -1,34 +1,71 @@
 import numpy as np
 import openturns as ot
 
-from shapley.base import ProbabilisticModel
+from shapley.model import ProbabilisticModel
+
+def is_independent(dist):
+    """
+    """
+    return np.all(np.tril(np.asarray(dist.getCorrelation()), k=-1) == 0.)
 
 class Ishigami(ProbabilisticModel):
-    """This class collect all the information about the Ishigami test function for sensitivity analysis.
+    """This class collect all the information about the Ishigami test function
+    for sensitivity analysis.
     """
-    def __init__(self, a=7, b=0.1):
+    def __init__(self):
         dim = 3
         margins = [ot.Uniform(-np.pi, np.pi)]*dim
         copula = ot.IndependentCopula(dim)
-        input_distribution = ot.ComposedDistribution(margins, copula)
-        ProbabilisticModel.__init__(self, model_func=ishigami_func, input_distribution=input_distribution)
-        self.a = a
-        self.b = b
+        ProbabilisticModel.__init__(
+            self,            
+            model_func=ishigami_func, 
+            input_distribution=ot.ComposedDistribution(margins, copula),
+            first_sobol_indices=[0.314, 0.442, 0.],
+            total_sobol_indices=[0.56, 0.44, 0.24],
+            shapley_indices=[0.437, 0.441, 0.12])
+        self.name = 'Ishigami'
+        
+    @ProbabilisticModel.first_sobol_indices.getter
+    def first_sobol_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.314, 0.442, 0.]
+        else:
+            return None
+        
+    @ProbabilisticModel.total_sobol_indices.getter
+    def total_sobol_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.56, 0.44, 0.24]
+        else:
+            return None        
+        
+    @ProbabilisticModel.shapley_indices.getter
+    def shapley_indices(self):
+        """
+        """
+        if is_independent(self._input_distribution):
+            return [0.437, 0.441, 0.12]
+        else:
+            return None
 
-        # TODO: adapt the true result for any a and b.
-        self._first_order_sobol_indices = [0.314, 0.442, 0.]
-        self._total_sobol_indices = [0.56, 0.44, 0.24]
-        self._shapley_indices = (np.asarray(self._first_order_sobol_indices) + np.asarray(self._total_sobol_indices))/2.
 
 class AdditiveGaussian(ProbabilisticModel):
-    """This class collect all the information about the Ishigami test function for sensitivity analysis.
+    """This class collect all the information about the Additive Gaussian test 
+    function for sensitivity analysis.
     """
     def __init__(self, dim, beta=None):
         margins = [ot.Normal()]*dim
         copula = ot.NormalCopula(dim)
-        input_distribution = ot.ComposedDistribution(margins, copula)
-        ProbabilisticModel.__init__(self, model_func=additive_func, input_distribution=input_distribution)
+        ProbabilisticModel.__init__(
+                self, 
+                model_func=additive_func, 
+                input_distribution=ot.ComposedDistribution(margins, copula))
         self.beta = beta
+        self.name = 'Additive Gaussian'
 
     @property
     def beta(self):
@@ -46,7 +83,7 @@ class AdditiveGaussian(ProbabilisticModel):
         self._beta = beta
 
     @property
-    def first_order_sobol_indices(self):
+    def first_sobol_indices(self):
         """
         """
         #beta = self.beta
@@ -82,7 +119,6 @@ class AdditiveGaussian(ProbabilisticModel):
         rho = theta[dep_pair]
         s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
-            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
             s_corr[0] = 1
             s_corr[1] = (1 + rho * sigma_x[2])**2
@@ -94,11 +130,11 @@ class AdditiveGaussian(ProbabilisticModel):
             indices = np.asarray([(1 + 2*theta[0] + theta[0]**2)/var_y]*dim)
             return indices
         else:
-            return self._first_order_sobol_indices
+            return self._first_sobol_indices
 
-    @first_order_sobol_indices.setter
-    def first_order_sobol_indices(self, indices):
-        self._first_order_sobol_indices = indices
+    @first_sobol_indices.setter
+    def first_sobol_indices(self, indices):
+        self._first_sobol_indices = indices
 
     @property
     def total_sobol_indices(self):
@@ -134,7 +170,6 @@ class AdditiveGaussian(ProbabilisticModel):
         rho = theta[dep_pair]
         s_corr = np.zeros((dim, ))
         if dim == 3 and len(rho) <= 1:
-            var_y = 2 + sigma_x[2]**2 + 2*rho*sigma_x[2]
             rho = rho.item() if len(rho) == 1 else 0
             s_corr[0] = 1
             s_corr[1] = 1. - rho**2

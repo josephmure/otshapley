@@ -164,7 +164,7 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
         fig, ax = plt.subplots(figsize=figsize)
 
     dim = 3
-    columns = ['$X_%d$' % (i+1) for i in range(dim)]
+    columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
     names = ('Correlation', 'Variables', 'Bootstrap')
     idx = [corrs, columns, range(n_boot)]
     index = pd.MultiIndex.from_product(idx, names=names)
@@ -178,9 +178,9 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
                'Total ind Sobol': 11,
                }
 
-    colors = {'$X_1$': 'b',
-             '$X_2$': 'r',
-             '$X_3$': 'g'}
+    colors = {'$X_{1}$': 'b',
+             '$X_{2}$': 'r',
+             '$X_{3}$': 'g'}
 
     for name in result_indices:
         if name in to_plot:

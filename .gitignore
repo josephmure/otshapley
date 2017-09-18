@@ -23,3 +23,6 @@
 /build
 *.c
 *.c
+
+# Spyder files
+.spyproject/

@@ -1,10 +1,7 @@
 import numpy as np
 import openturns as ot
 
-from .base import Base
-from .kriging import KrigingIndices
-from .base import SensitivityResults
-
+from .indices import BaseIndices, SensitivityResults
 
 
 def condMVN_new(cov, dependent_ind, given_ind, X_given):
@@ -120,34 +117,91 @@ def sub_sampling(distribution, n_sample, idx):
     return sample
 
 
-class ShapleyIndices(Base):
-    """Shappley indices object estimator.
+class ShapleyIndices(BaseIndices):
+    """Shappley indices estimator.
+    
+    Estimates the Shapley indices for sensitivity analysis of model output. The
+    estimation algorithm is inspired from [1] and slightly modified to 
+    implement a bootstrap strategy. The bootstrap can be made on the random 
+    permutation or the exact ones.
+    
+    Parameters
+    ----------
+    input_distribution : ot.DistributionImplementation,
+        An OpenTURNS distribution object.
+    
+    References
+    ----------
+    -- [1] Song, Eunhye, Barry L. Nelson, and Jeremy Staum, Shapley effects for
+        global sensitivity analysis
+        http://users.iems.northwestern.edu/~staum/ShapleyEffects.pdf
     """
     def __init__(self, input_distribution):
-        Base.__init__(self, input_distribution)
+        BaseIndices.__init__(self, input_distribution)
+        self._built_samples = False
 
-    def build_mc_sample(self, model, n_perms=None, Nv=10000, No=1000, Ni=3):
+    def build_sample(self, model, n_perms, n_var, n_outer, n_inner, n_realization=1):
+        """Creates the input and output sample for the computation.
+        
+        Using Algorithm described in [1], the input sample are generated using
+        the input distribution and are evaluated through the input model.
+        
+        Parameters
+        ----------
+        model : callable
+            The input model function.
+        
+        n_perms : int or None
+            The number of permutations. If None, the exact permutations method
+            is considerd.
+            
+        n_var : int
+            The sample size for the output variance estimation.
+            
+        n_outer : int
+            The number of conditionnal variance estimations.
+            
+        n_inner : int
+            The sample size for the conditionnal output variance estimation.
+            
+        n_realization : int, optional (default=1)
+            The number of realization if the model is a random meta-model.
+        
+        References
+        ----------
+        -- [1] Song, Eunhye, Barry L. Nelson, and Jeremy Staum, Shapley effects for
+            global sensitivity analysis
+            http://users.iems.northwestern.edu/~staum/ShapleyEffects.pdf
         """
-        """
-        return self._build_mc_sample(model, n_perms, Nv, No, Ni, n_realization=1)
-
-    def _build_mc_sample(self, model, n_perms, Nv, No, Ni, n_realization):
-        """
-        """
+        assert callable(model), "The model function should be callable."
+        assert isinstance(n_perms, (int, type(None))), \
+            "The number of permutation should be an integer or None."
+        assert isinstance(n_var, int), "n_var should be an integer."
+        assert isinstance(n_outer, int), "n_outer should be an integer."
+        assert isinstance(n_inner, int), "n_inner should be an integer."
+        assert isinstance(n_realization, int), \
+            "n_realization should be an integer."
+        if isinstance(n_perms, int):
+            assert n_perms > 0, "The number of permutation should be positive"
+            
+        assert n_var > 0, "n_var should be positive"
+        assert n_outer > 0, "n_outer should be positive"
+        assert n_inner > 0, "n_inner should be positive"
+        assert n_realization > 0, "n_realization should be positive"            
+        
         dim = self.dim
+        
         if n_perms is None:
             estimation_method = 'exact'
             perms = list(ot.KPermutations(dim, dim).generate())
             n_perms = len(perms)
-        elif n_perms > 0: 
+        else:
             estimation_method = 'random'
             perms = [np.random.permutation(dim) for i in range(n_perms)]
-        else:
-            raise ValueError('Wrong value for n_perms: {0}'.format(n_perms))
         
         # Creation of the design matrix
-        input_sample_1 = np.asarray(self.input_distribution.getSample(Nv))
-        input_sample_2 = np.zeros((n_perms * (dim - 1) * No * Ni, dim))
+        input_sample_1 = np.asarray(self.input_distribution.getSample(n_var))
+        input_sample_2 = np.zeros((n_perms * (dim - 1) * n_outer * n_inner, dim))
 
         for i_p, perm in enumerate(perms):
             idx_perm_sorted = np.argsort(perm)  # Sort the variable ids
@@ -156,15 +210,15 @@ class ShapleyIndices(Base):
                 idx_j = perm[:j + 1]
                 # Complementary set
                 idx_j_c = perm[j + 1:]
-                sample_j_c = sub_sampling(self.input_distribution, No, idx_j_c)
+                sample_j_c = sub_sampling(self.input_distribution, n_outer, idx_j_c)
                 self.sample_j_c = sample_j_c
                 for l, xjc in enumerate(sample_j_c):
                     # Sampling of the set conditionally to the complementary
                     # element
-                    xj = cond_sampling_new(self.input_distribution, Ni, idx_j, idx_j_c, xjc)
-                    xx = np.c_[xj, [xjc] * Ni]
-                    ind_inner = i_p * (dim - 1) * No * Ni + j * No * Ni + l * Ni
-                    input_sample_2[ind_inner:ind_inner + Ni, :] = xx[:, idx_perm_sorted]
+                    xj = cond_sampling_new(self.input_distribution, n_inner, idx_j, idx_j_c, xjc)
+                    xx = np.c_[xj, [xjc] * n_inner]
+                    ind_inner = i_p * (dim - 1) * n_outer * n_inner + j * n_outer * n_inner + l * n_inner
+                    input_sample_2[ind_inner:ind_inner + n_inner, :] = xx[:, idx_perm_sorted]
 
         # Model evaluation
         X = np.r_[input_sample_1, input_sample_2]
@@ -174,26 +228,48 @@ class ShapleyIndices(Base):
             output_sample = model(X)
         else:
             output_sample = model(X, n_realization)
-
-        self.output_sample_1 = output_sample[:Nv]
-        self.output_sample_2 = output_sample[Nv:].reshape((n_perms, dim-1, No, Ni, n_realization))
-        self.perms = perms
+                
+        self.output_sample_1 = output_sample[:n_var]
+        self.output_sample_2 = output_sample[n_var:]\
+            .reshape((n_perms, dim-1, n_outer, n_inner, n_realization))
+        
+        self.model = model
         self.estimation_method = estimation_method
-        self.Nv = Nv
-        self.No = No
-        self.Ni = Ni
+        self.perms = perms
+        self.n_var = n_var
+        self.n_outer = n_outer
+        self.n_inner = n_inner
         self.n_realization = n_realization
+        self._built_samples = True
 
-    def compute_indices(self, n_boot):
+    def compute_indices(self, n_boot=1):
+        """Computes the Shapley indices.
+        
+        The Shapley indices are computed from the computed samples. In addition
+        to the Shapley indices, the first-order and total Sobol' indices are
+        also computed.
+        
+        Parameters
+        ----------
+        n_boot : int
+            The number of bootstrap samples.
+            
+        Returns
+        -------
+        indice_results : instance of SensitivityResults
+            The sensitivity results of the estimation.
+        
         """
-        """
+        assert self._built_samples, "The samples must be computed prior."
+        assert isinstance(n_boot, int), "n_boot should be an integer."
+        assert n_boot > 0, "n_boot should be positive."
+        
         dim = self.dim
-        Nv = self.Nv
-        No = self.No
-        Ni = self.Ni
+        n_var = self.n_var
+        n_outer = self.n_outer
         n_realization = self.n_realization
-        perms = self.perms
         estimation_method = self.estimation_method
+        perms = self.perms
         n_perms = len(perms)
 
         # Initialize Shapley, main and total Sobol effects for all players
@@ -211,13 +287,11 @@ class ShapleyIndices(Base):
             # Bootstrap sample indexes
             # The first iteration is computed over the all sample.
             if i > 1:
-                boot_var_idx = np.random.randint(0, Nv, size=(Nv, ))
-                boot_Ni_idx = np.random.randint(0, Ni, size=(Ni, ))
-                boot_No_idx = np.random.randint(0, No, size=(No, ))
+                boot_var_idx = np.random.randint(0, n_var, size=(n_var, ))
+                boot_No_idx = np.random.randint(0, n_outer, size=(n_outer, ))
             else:
-                boot_var_idx = range(0, Nv)
-                boot_Ni_idx = range(0, Ni)
-                boot_No_idx = range(0, No)
+                boot_var_idx = range(n_var)
+                boot_No_idx = range(n_outer)
                 
             # Output variance
             var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
@@ -226,7 +300,6 @@ class ShapleyIndices(Base):
 
             # Conditional variances
             output_sample_2 = self.output_sample_2[:, :, boot_No_idx]
-            output_sample_2 = output_sample_2[:, :, :, boot_Ni_idx]
             
             c_var = output_sample_2.var(axis=3, ddof=1)
 
@@ -263,20 +336,11 @@ class ShapleyIndices(Base):
         total_indices = total_indices.reshape(dim, n_boot, n_realization)
         first_indices = first_indices.reshape(dim, n_boot, n_realization)
     
-        results = SensitivityResults(first_indices=first_indices, total_indices=total_indices,
-                                     shapley_indices=shapley_indices)
-        return results
-
-
-class ShapleyKrigingIndices(KrigingIndices, ShapleyIndices):
-    """Shappley indices object estimator.
-    """
-    def __init__(self, input_distribution):
-        KrigingIndices.__init__(self, input_distribution)
-        ShapleyIndices.__init__(self, input_distribution)
-
-        
-    def build_mc_sample(self, model, n_perms=3, Nv=10000, No=1000, Ni=3, n_realization=10):
-        """
-        """
-        return self._build_mc_sample(model, n_perms=n_perms, Nv=Nv, No=No, Ni=Ni, n_realization=n_realization)
+        indice_results = SensitivityResults(
+                first_indices=first_indices, 
+                total_indices=total_indices,
+                shapley_indices=shapley_indices,
+                true_first_indices=self.model.first_sobol_indices,
+                true_total_indices=self.model.total_sobol_indices,
+                true_shapley_indices=self.model.shapley_indices)
+        return indice_results
