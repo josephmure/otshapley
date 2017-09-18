@@ -21,9 +21,11 @@ conda update --quiet --yes conda
 popd
 
 # Create a conda env and install packages
-conda create -n testenv --quiet --yes python=$PYTHON_VERSION nose pip numpy pandas matplotlib seaborn scikit-learn tensorflow gpy git
+conda create -n testenv --quiet --yes python=$PYTHON_VERSION nose pip numpy pandas matplotlib seaborn scikit-learn tensorflow git
 
 source activate testenv
+
+conda install --quiet --yes -c conda-forge openturns GPy
 
 pushd .
 cd
@@ -32,7 +34,6 @@ cd GPflow
 pip install -e.
 popd
 
-conda install --quiet --yes -c conda-forge openturns
 pip install -q -r requirements.txt
 
 if [[ "$COVERAGE" == "true" ]]; then
