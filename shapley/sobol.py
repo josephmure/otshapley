@@ -176,6 +176,7 @@ class SobolIndices(BaseIndices):
             
             # 4) Model evaluations
             X = np.r_[X_1_i, X_2_i, X_3_i, X_4_i]
+            self.debug_X = X
             if n_realization == 1:
                 output_sample_i = model(X).reshape(4*n_sample, n_realization)
             else:

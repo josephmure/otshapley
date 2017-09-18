@@ -261,7 +261,7 @@ class MetaModel(ProbabilisticModel):
                 input_distribution=input_distribution)
         self.true_model = model
 
-    def generate_sample(self, n_sample=50, sampling='lhs', sampling_type='uniform', alpha=0.99):
+    def generate_sample(self, n_sample=50, sampling='lhs', sampling_type='uniform', alpha=0.999):
         """Generate the sample to build the model.
 
         Parameters
