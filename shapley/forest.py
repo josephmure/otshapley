@@ -26,7 +26,7 @@ class RandomForestModel(MetaModel):
         """
         """
         if method == 'random-forest':
-            regressor = RandomForestRegressor(n_estimators=n_estimators)
+            regressor = RandomForestRegressor(n_estimators=n_estimators, oob_score=True)
         elif method == 'extra-tree':
             regressor = ExtraTreesRegressor(n_estimators=n_estimators)
 
@@ -46,7 +46,7 @@ class RandomForestModel(MetaModel):
 
         def meta_model(X, n_estimators):
             if self.reg_rf is None or self.reg_rf.n_estimators != n_estimators:
-                self.reg_rf = RandomForestRegressor(n_estimators=n_estimators).fit(self.input_sample, self.output_sample)
+                self.reg_rf = RandomForestRegressor(n_estimators=n_estimators, oob_score=True).fit(self.input_sample, self.output_sample)
 
             n_sample = X.shape[0]
             y = np.zeros((n_sample, n_estimators))
@@ -57,3 +57,27 @@ class RandomForestModel(MetaModel):
 
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
+        
+def compute_perm_indices(rfq, X, y):
+    dim = rfq.n_features_
+    n_tree = rfq.n_estimators
+    oob_idx = np.invert(rfq.y_weights_.astype(bool))
+    perm_indices = np.zeros((dim, n_tree))
+    var_y = y.var()
+    for t, tree in enumerate(rfq.estimators_):
+        X_tree = X[oob_idx[t]]
+        y_tree = y[oob_idx[t]]
+        var_y_tree = y_tree.var()
+        y_pred_tree = tree.predict(X_tree)
+        r2 = ((y_tree - y_pred_tree)**2).mean()
+        # permutation
+        for i in range(dim):
+            X_tree_i = X_tree.copy()
+            np.random.shuffle(X_tree_i[:, i])
+            y_pred_tree_i = tree.predict(X_tree_i)
+            r2_i = ((y_tree - y_pred_tree_i)**2).mean()
+            perm_indices[i, t] = (r2_i - r2) / (2*var_y_tree)
+            perm_indices[i, t] = (r2_i - r2) / (2*var_y)
+#             perm_indices[i, t] = (r2_i - r2)
+            
+    return perm_indices

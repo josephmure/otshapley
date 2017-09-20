@@ -184,6 +184,11 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
             kriging_result = GaussianProcessRegressor(kernel=covariance)
             kriging_result.fit(input_sample_i, output_sample_i.ravel())
             meta_model_mean = kriging_result.predict
+        elif library == 'gpflow':
+            gp = gpflow.gpr.GPR(input_sample_i, output_sample_i.reshape(-1, 1), covariance, basis)
+            gp.likelihood.variance = 1.E-6
+            gp.optimize()
+            meta_model_mean = lambda X: gp.predict_y(X)[0].squeeze()
         else:
             raise ValueError('Unknow library {0}'.format(library))
         
@@ -213,7 +218,19 @@ def get_basis(basis_type, dim, library):
         elif basis_type == 'linear':
             basis = gpflow.mean_functions.Linear(np.zeros((dim, 1)), 0)
         elif basis_type == 'quadratic':
-            raise ValueError('Mean function {0} not available.'.format(basis_type))
+            const1 = gpflow.mean_functions.Constant(np.ones(1))
+            const2 = gpflow.mean_functions.Constant(np.ones(1))
+            basis = gpflow.mean_functions.Product(const1, const2)
+        elif basis_type == 'sum-product':
+            const1_1 = gpflow.mean_functions.Constant(1)
+            const1_2 = gpflow.mean_functions.Constant(1)
+            const2_1 = gpflow.mean_functions.Constant(1)
+            const2_2 = gpflow.mean_functions.Constant(1)
+            
+            basis = gpflow.mean_functions.Additive(
+                gpflow.mean_functions.Product(const1_1, const2_1),
+                gpflow.mean_functions.Product(const1_2, const2_2))
+
         else:
             raise ValueError('Unknow basis type {0}'.format(basis_type))
         return basis
