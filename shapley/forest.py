@@ -60,12 +60,16 @@ class RandomForestModel(MetaModel):
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
         
-def compute_perm_indices(rfq, X, y):
+def compute_perm_indices(rfq, X, y, dist):
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
     oob_idx = np.invert(rfq.y_weights_.astype(bool))
     perm_indices = np.zeros((dim, n_tree))
     var_y = y.var()
+    trans = dist.getIsoProbabilisticTransformation()
+    tmp = dist.getInverseIsoProbabilisticTransformation()
+    inv_trans = lambda u: np.asarray(tmp(u))
+    n_pairs = dim
     for t, tree in enumerate(rfq.estimators_):
         X_tree = X[oob_idx[t]]
         y_tree = y[oob_idx[t]]
@@ -75,14 +79,84 @@ def compute_perm_indices(rfq, X, y):
         n_sample = len(y_tree)
         # permutation
         for i in range(dim):
-            X_tree_i = X_tree.copy()
-            np.random.shuffle(X_tree_i[:, i])
-            #X_tree_i[:, i] = X_tree_i[np.random.randint(0, n_sample), i]
+            margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
+            copula = ot.Copula(dist.getCopula())
+
+            order_i = np.roll(range(dim), -i)
+            order_i_inv = np.roll(range(dim), i)
+            order_cop = np.roll(range(n_pairs), i)
+            margins_i = [margins[j] for j in order_i]
+            params_i = np.asarray(copula.getParameter())[order_cop]
+
+            copula.setParameter(params_i)
+            dist_i = ot.ComposedDistribution(margins_i, copula)
+            trans_i = dist_i.getIsoProbabilisticTransformation()
+            U_tree = np.asarray(trans_i(X_tree[:, order_i]))
+
+            # 3) Inverse Transformation
+            tmp = dist_i.getInverseIsoProbabilisticTransformation()
+            inv_rosenblatt_transform_i = lambda u: np.asarray(tmp(u))
+
+            U_tree_i = U_tree.copy()
+            U_tree_i[:, 0] = np.random.permutation(U_tree_i[:, 0])
+            X_tree_i = inv_rosenblatt_transform_i(U_tree_i)
+            
+            X_tree_i = X_tree_i[:, order_i_inv]
+
             y_pred_tree_i = tree.predict(X_tree_i)
             r2_i = ((y_tree - y_pred_tree_i)**2).mean()
             perm_indices[i, t] = (r2_i - r2) / (2*var_y_tree)
-            #perm_indices[i, t] = (r2_i - r2) / (2*var_y)
-#             perm_indices[i, t] = (r2_i - r2)
+            
+    return perm_indices
+
+
+def compute_1stperm_indices(rfq, X, y, dist):
+    dim = rfq.n_features_
+    n_tree = rfq.n_estimators
+    oob_idx = np.invert(rfq.y_weights_.astype(bool))
+    perm_indices = np.zeros((dim, n_tree))
+    var_y = y.var()
+    trans = dist.getIsoProbabilisticTransformation()
+    tmp = dist.getInverseIsoProbabilisticTransformation()
+    inv_trans = lambda u: np.asarray(tmp(u))
+    n_pairs = dim
+    for t, tree in enumerate(rfq.estimators_):
+        X_tree = X[oob_idx[t]]
+        y_tree = y[oob_idx[t]]
+        var_y_tree = y_tree.var()
+        y_pred_tree = tree.predict(X_tree)
+        r2 = ((y_tree - y_pred_tree)**2).mean()
+        n_sample = len(y_tree)
+        # permutation
+        for i in range(dim):
+            margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
+            copula = ot.Copula(dist.getCopula())
+
+            order_i = np.roll(range(dim), -i)
+            order_i_inv = np.roll(range(dim), i)
+            order_cop = np.roll(range(n_pairs), i)
+            margins_i = [margins[j] for j in order_i]
+            params_i = np.asarray(copula.getParameter())[order_cop]
+
+            copula.setParameter(params_i)
+            dist_i = ot.ComposedDistribution(margins_i, copula)
+            trans_i = dist_i.getIsoProbabilisticTransformation()
+            U_tree = np.asarray(trans_i(X_tree[:, order_i]))
+
+            # 3) Inverse Transformation
+            tmp = dist_i.getInverseIsoProbabilisticTransformation()
+            inv_rosenblatt_transform_i = lambda u: np.asarray(tmp(u))
+
+            U_tree_i = U_tree.copy()
+            U_tree_i[:, 1:] = np.random.permutation(U_tree_i[:, 1:])
+            X_tree_i = inv_rosenblatt_transform_i(U_tree_i)
+            
+            X_tree_i = X_tree_i[:, order_i_inv]
+
+            y_pred_tree_i = tree.predict(X_tree_i)
+            r2_i = ((y_tree - y_pred_tree_i)**2).mean()
+            I = (r2_i - r2)
+            perm_indices[i, t] = 1 - I/ (2*var_y_tree)
             
     return perm_indices
 
@@ -102,7 +176,7 @@ def perm_ind_tree(tree, X_tree, y_tree):
         perm_indices[i] = (r2_i - r2) / (2*var_y_tree)
     return perm_indices
         
-def compute_shap_indices(rfq, X, y):
+def compute_shap_indices(rfq, X, y, dist):
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
     oob_idx = np.invert(rfq.y_weights_.astype(bool))
@@ -113,6 +187,7 @@ def compute_shap_indices(rfq, X, y):
     perm_indices = np.zeros((dim, n_tree))
     c_hat = np.zeros((n_perms, dim, n_tree))
     variance = np.zeros((n_tree, ))
+    n_pairs = int(dim * (dim-1) / 2)
 
     for t, tree in enumerate(rfq.estimators_):
         X_tree = X[oob_idx[t]]
@@ -123,15 +198,40 @@ def compute_shap_indices(rfq, X, y):
         r2 = ((y_tree - y_pred_tree)**2).mean()
         for i_p, perm in enumerate(perms):
             # permutation
-            for j in range(dim - 1):
-                idx = perm[:j + 1]
-                X_tree_i = X_tree.copy()
-                X_tree_i[:, idx] = np.random.permutation(X_tree_i[:, idx])
+
+            order_i = perm
+            order_i_inv = [list(order_i).index(j) for j in range(dim)]
+            order_cop = order_i_inv
+            for i in range(dim - 1):
+                idx = perm[:i + 1]
+
+                margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
+                copula = ot.Copula(dist.getCopula())
+
+                margins_i = [margins[j] for j in order_i]
+                params_i = np.asarray(copula.getParameter())[order_cop]
+
+                copula.setParameter(params_i)
+                dist_i = ot.ComposedDistribution(margins_i, copula)
+                trans_i = dist_i.getIsoProbabilisticTransformation()
+                U_tree = np.asarray(trans_i(X_tree[:, order_i]))
+
+                # 3) Inverse Transformation
+                tmp = dist_i.getInverseIsoProbabilisticTransformation()
+                inv_rosenblatt_transform_i = lambda u: np.asarray(tmp(u))
+
+                U_tree_i = U_tree.copy()
+                U_tree_i[:, :i + 1] = np.random.permutation(U_tree_i[:, :i + 1])
+                X_tree_i = inv_rosenblatt_transform_i(U_tree_i)
+            
+                X_tree_i = X_tree_i[:, order_i_inv]
+
+
                 y_pred_tree_i = tree.predict(X_tree_i)
                 r2_i = ((y_tree - y_pred_tree_i)**2).mean()
                 perm_indice = (r2_i - r2)
                 c_mean_var = perm_indice/2.
-                c_hat[i_p, j, t] = c_mean_var
+                c_hat[i_p, i, t] = c_mean_var
             c_hat[i_p, -1, t] = var_y_tree
 
     # Cost variation
