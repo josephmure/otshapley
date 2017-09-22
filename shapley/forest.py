@@ -60,54 +60,85 @@ class RandomForestModel(MetaModel):
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
         
-def compute_perm_indices(rfq, X, y, dist):
+def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
+    """
+    """
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
+    trees = rfq.estimators_
+    n_pairs = int(dim * (dim-1)/2)
     oob_idx = np.invert(rfq.y_weights_.astype(bool))
-    perm_indices = np.zeros((dim, n_tree))
-    var_y = y.var()
-    trans = dist.getIsoProbabilisticTransformation()
-    tmp = dist.getInverseIsoProbabilisticTransformation()
-    inv_trans = lambda u: np.asarray(tmp(u))
-    n_pairs = dim
-    for t, tree in enumerate(rfq.estimators_):
+
+    if indice_type == 'full':
+        dev = 0
+    elif indice_type == 'ind':
+        dev = 1
+    else:
+        raise(ValueError('Unknow indice_type: {0}').format(indice_type))
+       
+    first_indices = np.zeros((dim, n_tree))
+    total_indices = np.zeros((dim, n_tree))
+    for t, tree in enumerate(trees):
         X_tree = X[oob_idx[t]]
         y_tree = y[oob_idx[t]]
         var_y_tree = y_tree.var()
         y_pred_tree = tree.predict(X_tree)
-        r2 = ((y_tree - y_pred_tree)**2).mean()
-        n_sample = len(y_tree)
-        # permutation
+        error = ((y_tree - y_pred_tree)**2).mean()
+        #TODO: it can be better by taking out of the loop the permutations
+        # which are computed for each tree
         for i in range(dim):
             margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
             copula = ot.Copula(dist.getCopula())
 
+            # We consider the rotations for the Rosenblatt Transformation (RT)
             order_i = np.roll(range(dim), -i)
             order_i_inv = np.roll(range(dim), i)
             order_cop = np.roll(range(n_pairs), i)
+            # Rotation of the margins and the copula
+            # TODO: check the rotation for the copula
             margins_i = [margins[j] for j in order_i]
             params_i = np.asarray(copula.getParameter())[order_cop]
-
             copula.setParameter(params_i)
+
+            # Create the distribution and build the RTs
             dist_i = ot.ComposedDistribution(margins_i, copula)
-            trans_i = dist_i.getIsoProbabilisticTransformation()
-            U_tree = np.asarray(trans_i(X_tree[:, order_i]))
-
-            # 3) Inverse Transformation
-            tmp = dist_i.getInverseIsoProbabilisticTransformation()
-            inv_rosenblatt_transform_i = lambda u: np.asarray(tmp(u))
-
-            U_tree_i = U_tree.copy()
-            U_tree_i[:, 0] = np.random.permutation(U_tree_i[:, 0])
-            X_tree_i = inv_rosenblatt_transform_i(U_tree_i)
+            transform_i = lambda u: np.asarray(dist_i.getIsoProbabilisticTransformation()(u))
+            inv_transform_i = lambda u: np.asarray(dist_i.getInverseIsoProbabilisticTransformation()(u))
             
-            X_tree_i = X_tree_i[:, order_i_inv]
+            # The following lines transform the sample to be in an iso
+            # probabilistic space. Then doing the permutation in the
+            # uncorrelated space and going back in the normal space.
+            # This steps makes the permutation possible without changing the 
+            # input law
 
-            y_pred_tree_i = tree.predict(X_tree_i)
-            r2_i = ((y_tree - y_pred_tree_i)**2).mean()
-            perm_indices[i, t] = (r2_i - r2) / (2*var_y_tree)
+            # Iso transformation
+            U_tree = transform_i(X_tree[:, order_i])
+            U_tree_i_first = U_tree.copy()
+            U_tree_i_total = U_tree.copy()
+            # Permutation of the 1st column (due to rearangement) (total indices)
+            U_tree_i_total[:, 0-dev] = np.random.permutation(U_tree[:, 0])
+            U_tree_i_first[:, (1-dev):(dim-dev)] = np.random.permutation(U_tree[:, (1-dev):(dim-dev)])
             
-    return perm_indices
+            # Inverse Iso transformation
+            X_tree_i_total = inv_transform_i(U_tree_i_total)
+            X_tree_i_first = inv_transform_i(U_tree_i_first)
+            
+            # Reordering of the features
+            X_tree_i_total = X_tree_i_total[:, order_i_inv]
+            X_tree_i_first = X_tree_i_first[:, order_i_inv]
+
+            # Computes the error with the permuted variable
+            y_pred_tree_i_total = tree.predict(X_tree_i_total)
+            y_pred_tree_i_first = tree.predict(X_tree_i_first)
+
+            error_i_total = ((y_tree - y_pred_tree_i_total)**2).mean()
+            error_i_first = ((y_tree - y_pred_tree_i_first)**2).mean()
+
+            # The total sobol indices
+            total_indices[i-dev, t] = (error_i_total - error) / (2*var_y_tree)
+            first_indices[i-dev, t] = 1. - (error_i_first - error) / (2*var_y_tree)
+            
+    return first_indices, total_indices
 
 
 def compute_1stperm_indices(rfq, X, y, dist):
