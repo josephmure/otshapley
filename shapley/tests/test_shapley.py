@@ -18,7 +18,7 @@ def test_shapley_gaussian_no_boot():
     model.copula_parameters = theta
     
     shapley = ShapleyIndices(input_distribution=model.input_distribution)
-    shapley.build_sample(model=model, n_perms=None, Nv=10000, No=1000, Ni=100)
+    shapley.build_sample(model=model, n_perms=None, n_var=10000, n_outer=1000, n_inner=100)
     shapley_results = shapley.compute_indices(n_boot=1)
     first_indices = shapley_results.first_indices
     total_indices = shapley_results.total_indices
@@ -39,7 +39,7 @@ def test_shapley_gaussian_boot():
     model.copula_parameters = theta
     
     shapley = ShapleyIndices(input_distribution=model.input_distribution)
-    shapley.build_sample(model=model, n_perms=None, Nv=1000, No=100, Ni=10)
+    shapley.build_sample(model=model, n_perms=None, n_var=1000, n_outer=100, n_inner=10)
     shapley_results = shapley.compute_indices(n_boot=N_BOOT)
 
     quantiles_first = np.percentile(shapley_results.full_first_indices, [1, 99], axis=1)
@@ -63,7 +63,7 @@ def test_shapley_ishigami_ind_boot():
     model.copula = ot.NormalCopula(dim)
     
     shapley = ShapleyIndices(input_distribution=model.input_distribution)
-    shapley.build_sample(model=model, n_perms=None, Nv=1000, No=100, Ni=10)
+    shapley.build_sample(model=model, n_perms=None, n_var=1000, n_outer=100, n_inner=10)
     shapley_results = shapley.compute_indices(n_boot=N_BOOT)
 
     quantiles_first = np.percentile(shapley_results.full_first_indices, [1, 99], axis=1)

@@ -111,13 +111,15 @@ class KrigingModel(MetaModel):
             
             predict = kriging_result.predict
         elif library == 'gpflow':
-            kernel = gpflow.kernels.Matern52(self._dim)
-            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=kernel)
-            gp.likelihood.variance = 0.
+            self.covariance = kernel
+            self.basis = basis_type
+            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=self.covariance, mean_function=self.basis)
+            gp.likelihood.variance = 1.E-6
+            gp.likelihood.fixed = True
             gp.compile()
             gp.optimize()
 
-            def meta_model(X, n_realization=1):
+            def meta_model(X, n_realization):
                 """
                 """
                 results = gp.predict_f_samples(X, n_realization)
@@ -129,7 +131,6 @@ class KrigingModel(MetaModel):
                 results = gp.predict_y(X)[0]
                 return results.squeeze()
             self.gp_qflow = gp
-
         else:
             raise ValueError('Unknow library {0}'.format(library))
 
@@ -154,7 +155,7 @@ class KrigingModel(MetaModel):
 
     @basis.setter
     def basis(self, basis):
-        self._basis = get_basis(basis, self._dim)
+        self._basis = get_basis(basis, self._dim, self.library)
 
     def compute_score_q2_loo(self):
         """Leave One Out estimation of Q2.
@@ -183,6 +184,11 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
             kriging_result = GaussianProcessRegressor(kernel=covariance)
             kriging_result.fit(input_sample_i, output_sample_i.ravel())
             meta_model_mean = kriging_result.predict
+        elif library == 'gpflow':
+            gp = gpflow.gpr.GPR(input_sample_i, output_sample_i.reshape(-1, 1), covariance, basis)
+            gp.likelihood.variance = 1.E-6
+            gp.optimize()
+            meta_model_mean = lambda X: gp.predict_y(X)[0].squeeze()
         else:
             raise ValueError('Unknow library {0}'.format(library))
         
@@ -194,20 +200,42 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
     
     return q2
 
+def get_basis(basis_type, dim, library):
+    """
+    """
+    if library == 'OT':
+        if basis_type == 'constant':
+            basis = ot.ConstantBasisFactory(dim).build()
+        elif basis_type == 'linear':
+            basis = ot.LinearBasisFactory(dim).build()
+        elif basis_type == 'quadratic':
+            basis = ot.QuadraticBasisFactory(dim).build()
+        else:
+            raise ValueError('Unknow basis type {0}'.format(basis_type))
+    elif library == 'gpflow':
+        if basis_type == 'constant':
+            basis = gpflow.mean_functions.Constant()
+        elif basis_type == 'linear':
+            basis = gpflow.mean_functions.Linear(np.zeros((dim, 1)), 0)
+        elif basis_type == 'quadratic':
+            const1 = gpflow.mean_functions.Constant(np.ones(1))
+            const2 = gpflow.mean_functions.Constant(np.ones(1))
+            basis = gpflow.mean_functions.Product(const1, const2)
+        elif basis_type == 'sum-product':
+            const1_1 = gpflow.mean_functions.Constant(1)
+            const1_2 = gpflow.mean_functions.Constant(1)
+            const2_1 = gpflow.mean_functions.Constant(1)
+            const2_2 = gpflow.mean_functions.Constant(1)
+            
+            basis = gpflow.mean_functions.Additive(
+                gpflow.mean_functions.Product(const1_1, const2_1),
+                gpflow.mean_functions.Product(const1_2, const2_2))
 
-def get_basis(basis_type, dim):
-    """
-    """
-    if basis_type == 'constant':
-        basis = ot.ConstantBasisFactory(dim).build()
-    elif basis_type == 'linear':
-        basis = ot.LinearBasisFactory(dim).build()
-    elif basis_type == 'quadratic':
-        basis = ot.QuadraticBasisFactory(dim).build()
+        else:
+            raise ValueError('Unknow basis type {0}'.format(basis_type))
+        return basis
     else:
-        raise ValueError('Unknow basis type {0}'.format(basis_type))
-
-    return basis
+        raise ValueError('Unknow library {0}'.format(library))
 
 
 def get_covariance(kernel, library, dim=None):
@@ -235,6 +263,15 @@ def get_covariance(kernel, library, dim=None):
                 covariance = kernels.ExpSineSquared()
             elif kernel == 'RBF':
                 covariance = kernels.RBF()
+            else:
+                raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
+        elif library == 'gpflow':
+            if kernel == 'matern':
+                covariance = gpflow.kernels.Matern52(dim)
+            elif kernel == 'exponential':
+                covariance = gpflow.kernels.Exponential(dim)
+            elif kernel == 'RBF':
+                covariance = gpflow.kernels.RBF(dim)
             else:
                 raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
         else:

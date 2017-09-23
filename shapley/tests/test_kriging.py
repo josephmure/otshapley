@@ -20,16 +20,17 @@ SAMPLINGS = ['lhs']
 OT_BASIS = ['linear', 'constant', 'quadratic']
 OT_KERNELS = ['matern', 'exponential', 'generalized-exponential']
 SK_KERNELS = ['matern', 'RBF']
+LIBRAIRIES = ['sklearn', 'gpflow']
 
-@pytest.mark.parametrize("kernel", SK_KERNELS)
-def test_sobol_kriging_ishigami_ind_SK(kernel):
+@pytest.mark.parametrize("kernel, library", list(product(SK_KERNELS, LIBRAIRIES)))
+def test_sobol_kriging_ishigami_ind(kernel, library):
     ot.RandomGenerator.SetSeed(0)
     np.random.seed(0)
     model = Ishigami()
     
     model_gp = KrigingModel(model=model, input_distribution=model.input_distribution)
     model_gp.generate_sample(n_sample=MODEL_BUDGET, sampling='lhs', sampling_type='uniform')
-    model_gp.build(library='sklearn', kernel=kernel, basis_type='linear')
+    model_gp.build(library=library, kernel=kernel, basis_type='linear')
     
     sobol = SobolIndices(input_distribution=model.input_distribution)
     sobol.build_sample(model=model_gp, n_sample=N_SAMPLE, n_realization=N_REALIZATION)
@@ -44,8 +45,7 @@ def test_sobol_kriging_ishigami_ind_SK(kernel):
     np.testing.assert_array_less(model.total_sobol_indices, quantiles_total[1, :])
     
 
-SAMPLING_KERNELS_BASIS = list(product(OT_KERNELS, OT_BASIS))
-@pytest.mark.parametrize("kernel, basis", SAMPLING_KERNELS_BASIS)
+@pytest.mark.parametrize("kernel, basis", list(product(OT_KERNELS, OT_BASIS)))
 def test_sobol_kriging_ishigami_ind_bench_OT(kernel, basis):
     ot.RandomGenerator.SetSeed(0)
     np.random.seed(0)
@@ -73,7 +73,7 @@ THETAS_TYPES = list(product(THETAS, INDICE_TYPES))
 
 # Tests from Mara & Tarantola 2012/2015
 @pytest.mark.parametrize("theta, ind_type", THETAS_TYPES)
-def test_full_ind_sobol_kriging_gaussian_dep_SK(theta, ind_type):
+def test_full_ind_sobol_kriging_gaussian_dep_gpflow(theta, ind_type):
     ot.RandomGenerator.SetSeed(0)
     np.random.seed(0)
     dim = 3
@@ -86,7 +86,7 @@ def test_full_ind_sobol_kriging_gaussian_dep_SK(theta, ind_type):
     
     model_gp = KrigingModel(model=model, input_distribution=model.input_distribution)
     model_gp.generate_sample(n_sample=MODEL_BUDGET, sampling='lhs', sampling_type='uniform')
-    model_gp.build(library='sklearn', kernel='matern', basis_type='linear')
+    model_gp.build(library='gpflow', kernel='matern', basis_type='linear')
 
     sobol = SobolIndices(input_distribution=model.input_distribution)
     sobol.build_uncorr_sample(model=model_gp, n_sample=300, n_realization=N_REALIZATION)
