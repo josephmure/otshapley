@@ -1,8 +1,8 @@
 import numpy as np
 import openturns as ot
-import random
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
-
+from skgarden import RandomForestQuantileRegressor
+from sklearn.ensemble.forest import _generate_unsampled_indices  
 from skopt import BayesSearchCV
 from skopt.space import Integer
 
@@ -61,57 +61,62 @@ class RandomForestModel(MetaModel):
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
         
+def get_pos(dim, j1, j2):
+    """
+    """
+    k = 0
+    for i in range(1, dim):
+        for j in range(i):
+            if i == j1 and j == j2:
+                return k
+            elif i == j2 and j == j1:
+                return k
+            k += 1
+
 def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
     """
     """
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
     trees = rfq.estimators_
-    n_pairs = int(dim * (dim-1)/2)
-    oob_idx = np.invert(rfq.y_weights_.astype(bool))
-
+    if isinstance(rfq, RandomForestQuantileRegressor):
+        oob_idx = np.invert(rfq.y_weights_.astype(bool))
+    elif isinstance(rfq, RandomForestRegressor):
+        n_samples = X.shape[0]
+        oob_idx = []
+        for tree in rfq.estimators_:
+            # Here at each iteration we obtain out of bag samples for every tree.
+            oob_idx.append(_generate_unsampled_indices(tree.random_state, n_samples))
+    else:
+        raise('Unknow rfq type: {0}'.format(type(rfq)))
+        
     if indice_type == 'full':
         dev = 0
     elif indice_type == 'ind':
         dev = 1
     else:
         raise(ValueError('Unknow indice_type: {0}').format(indice_type))
-
+       
     margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
-    order = []
-    order_inv = []
-    transform = []
-    inv_transform = []
-    for i in range(dim):
-        # We consider the rotations for the Rosenblatt Transformation (RT)
-        order.append(np.roll(range(dim), -i))
-        order_inv.append(np.roll(range(dim), i))
-        order_cop = np.roll(range(n_pairs), i)
-
-        # Rotation of the margins and the copula
-        # TODO: check the rotation for the copula
-        margins_i = [margins[j] for j in order[i]]
-        copula_i = ot.Copula(dist.getCopula())
-        params_i = np.asarray(copula_i.getParameter())[order_cop]
-        copula_i.setParameter(params_i)
-
-        # Create the distribution and build the RTs
-        dist_i = ot.ComposedDistribution(margins_i, copula_i)
-        transform.append(lambda u: np.asarray(dist_i.getIsoProbabilisticTransformation()(u)))
-        inv_transform.append(lambda u: np.asarray(dist_i.getInverseIsoProbabilisticTransformation()(u)))
-
+    copula = dist.getCopula()
+    
     first_indices = np.zeros((dim, n_tree))
     total_indices = np.zeros((dim, n_tree))
-
     for t, tree in enumerate(trees):
         X_tree = X[oob_idx[t]]
         y_tree = y[oob_idx[t]]
         var_y_tree = y_tree.var()
         y_pred_tree = tree.predict(X_tree)
-        error = ((y_tree - y_pred_tree)**2).mean()
+        error_tree = ((y_tree - y_pred_tree)**2).mean()
         #TODO: it can be better by taking out of the loop the permutations
         # which are computed for each tree
         for i in range(dim):
+            # We consider the rotations for the Rosenblatt Transformation (RT)
+            order_i = np.roll(range(dim), -i)
+            order_i_inv = [list(order_i).index(j) for j in range(dim)]
+            
+            # Get the transformations
+            transform_i, inv_transform_i = get_transformations(margins, copula, order_i)
             # The following lines transform the sample to be in an iso
             # probabilistic space. Then doing the permutation in the
             # uncorrelated space and going back in the normal space.
@@ -119,52 +124,131 @@ def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
             # input law
 
             # Iso transformation
-            U_tree = transform[i](X_tree[:, order[i]])
-            U_tree_i_total = U_tree.copy()
+            U_tree = transform_i(X_tree[:, order_i])
             U_tree_i_first = U_tree.copy()
-
+            U_tree_i_total = U_tree.copy()
+            
             # Permutation of the 1st column (due to rearangement) (total indices)
             U_tree_i_total[:, 0-dev] = np.random.permutation(U_tree[:, 0-dev])
             U_tree_i_first[:, (1-dev):(dim-dev)] = np.random.permutation(U_tree[:, (1-dev):(dim-dev)])
             
             # Inverse Iso transformation
-            X_tree_i_total = inv_transform[i](U_tree_i_total)
-            X_tree_i_first = inv_transform[i](U_tree_i_first)
+            X_tree_i_total = inv_transform_i(U_tree_i_total)
+            X_tree_i_first = inv_transform_i(U_tree_i_first)
             
             # Reordering of the features
-            X_tree_i_total = X_tree_i_total[:, order_inv[i]]
-            X_tree_i_first = X_tree_i_first[:, order_inv[i]]
+            X_tree_i_total = X_tree_i_total[:, order_i_inv]
+            X_tree_i_first = X_tree_i_first[:, order_i_inv]
 
             # Computes the error with the permuted variable
             y_pred_tree_i_total = tree.predict(X_tree_i_total)
             y_pred_tree_i_first = tree.predict(X_tree_i_first)
+
             error_i_total = ((y_tree - y_pred_tree_i_total)**2).mean()
             error_i_first = ((y_tree - y_pred_tree_i_first)**2).mean()
 
             # The total sobol indices
-            total_indices[i-dev, t] = (error_i_total - error) / (2*var_y_tree)
-            first_indices[i-dev, t] = 1. - (error_i_first - error) / (2*var_y_tree)
-
+            total_indices[i-dev, t] = (error_i_total - error_tree) / (2*var_y_tree)
+            first_indices[i-dev, t] = 1. - (error_i_first - error_tree) / (2*var_y_tree)
+            
     results_permutation = SensitivityResults(first_indices=first_indices.reshape(dim, n_tree, 1),
                                              total_indices=total_indices.reshape(dim, n_tree, 1))
     return results_permutation
 
 
-def tree_indice(tree, X_tree, y_tree):
+def get_transformations(margins, copula, order):
     """
     """
+    dim = len(margins)
+    # Rotation of the margins and the copula
+    # TODO: check the rotation for the copula
+    order_cop = []
+    for j1 in range(1, dim):
+        for j2 in range(j1):
+            order_cop.append(get_pos(dim, order[j1], order[j2]))
+    
+    margins = [margins[j] for j in order]
+    copula = ot.Copula(copula)
+    params = np.asarray(copula.getParameter())[order_cop]
+    copula.setParameter(params)
+
+    # Create the distribution and build the RTs
+    dist = ot.ComposedDistribution(margins, copula)
+    transform = lambda u: np.asarray(dist.getIsoProbabilisticTransformation()(u))
+    inv_transform = lambda u: np.asarray(dist.getInverseIsoProbabilisticTransformation()(u))
+    
+    return transform, inv_transform
+
+if False:
+    def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
+        """
+        """
+        dim = rfq.n_features_
+        n_tree = rfq.n_estimators
+        trees = rfq.estimators_
+        n_pairs = int(dim * (dim-1)/2)
+        oob_idx = np.invert(rfq.y_weights_.astype(bool))
+    
+        if indice_type == 'full':
+            dev = 0
+        elif indice_type == 'ind':
+            dev = 1
+        else:
+            raise(ValueError('Unknow indice_type: {0}').format(indice_type))
+    
+        order = []
+        transform = []
+        inv_transform = []
+        dist_order = []
+        for i in range(dim):
+            margins = [ot.Distribution(dist.getMarginal(j)) for j in range(dim)]
+            # We consider the rotations for the Rosenblatt Transformation (RT)
+            order.append(np.roll(range(dim), -i))
+            order_cop = np.roll(range(n_pairs), i)
+    
+            # Rotation of the margins and the copula
+            # TODO: check the rotation for the copula
+            margins_i = [margins[j] for j in order[i]]
+            copula_i = ot.Copula(dist.getCopula())
+            params_i = np.asarray(copula_i.getParameter())[order_cop]
+            copula_i.setParameter(params_i)
+    
+            # Create the distribution and build the RTs
+            dist_order.append(ot.ComposedDistribution(margins_i, copula_i))
+            transform.append(lambda u: np.asarray(dist_order[i].getIsoProbabilisticTransformation()(u)))
+            inv_transform.append(lambda u: np.asarray(dist_order[i].getInverseIsoProbabilisticTransformation()(u)))
+    
+        first_indices = np.zeros((dim, n_tree))
+        total_indices = np.zeros((dim, n_tree))
+    
+        for t, tree in enumerate(trees):
+            X_tree = X[oob_idx[t]]
+            y_tree = y[oob_idx[t]]
+            first, total = tree_indice(tree, X_tree, y_tree, transform, inv_transform, order, dev)
+            first_indices[:, t] = first
+            total_indices[:, t] = total
+    
+        results_permutation = SensitivityResults(first_indices=first_indices.reshape(dim, n_tree, 1),
+                                                 total_indices=total_indices.reshape(dim, n_tree, 1))
+        return results_permutation
+
+
+def tree_indice(tree, X_tree, y_tree, transform, inv_transform, order, dev):
+    """
+    """
+    dim = X_tree.shape[1]
     var_y_tree = y_tree.var()
     y_pred_tree = tree.predict(X_tree)
     error = ((y_tree - y_pred_tree)**2).mean()
     #TODO: it can be better by taking out of the loop the permutations
     # which are computed for each tree
+    first = np.zeros((dim, ))
+    total = np.zeros((dim, ))
     for i in range(dim):
         # The following lines transform the sample to be in an iso
-        # probabilistic space. Then doing the permutation in the
-        # uncorrelated space and going back in the normal space.
-        # This steps makes the permutation possible without changing the 
-        # input law
-
+        # probabilistic space. Then doing the permutation in the uncorrelated 
+        # space and going back in the normal space. This step makes the 
+        # permutation possible without changing the input law
         # Iso transformation
         U_tree = transform[i](X_tree[:, order[i]])
         U_tree_i_total = U_tree.copy()
@@ -172,15 +256,18 @@ def tree_indice(tree, X_tree, y_tree):
 
         # Permutation of the 1st column (due to rearangement) (total indices)
         U_tree_i_total[:, 0-dev] = np.random.permutation(U_tree[:, 0-dev])
-        U_tree_i_first[:, (1-dev):(dim-dev)] = np.random.permutation(U_tree[:, (1-dev):(dim-dev)])
+        U_tree_i_first[:, (1-dev):(dim-dev)] = \
+            np.random.permutation(U_tree[:, (1-dev):(dim-dev)])
             
         # Inverse Iso transformation
         X_tree_i_total = inv_transform[i](U_tree_i_total)
         X_tree_i_first = inv_transform[i](U_tree_i_first)
             
+        order_inv_i = [list(order[i]).index(j) for j in range(dim)]
+        
         # Reordering of the features
-        X_tree_i_total = X_tree_i_total[:, order_inv[i]]
-        X_tree_i_first = X_tree_i_first[:, order_inv[i]]
+        X_tree_i_total = X_tree_i_total[:, order_inv_i]
+        X_tree_i_first = X_tree_i_first[:, order_inv_i]
 
         # Computes the error with the permuted variable
         y_pred_tree_i_total = tree.predict(X_tree_i_total)
@@ -189,19 +276,19 @@ def tree_indice(tree, X_tree, y_tree):
         error_i_first = ((y_tree - y_pred_tree_i_first)**2).mean()
 
         # The total sobol indices
-        total_indices[i-dev, t] = (error_i_total - error) / (2*var_y_tree)
-        first_indices[i-dev, t] = 1. - (error_i_first - error) / (2*var_y_tree)
+        total[i-dev] = (error_i_total - error) / (2*var_y_tree)
+        first[i-dev] = 1. - (error_i_first - error) / (2*var_y_tree)
+
+    return first, total
 
 
 def compute_shap_indices(rfq, X, y, dist):
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
     oob_idx = np.invert(rfq.y_weights_.astype(bool))
-    var_y = y.var()
 
     perms = list(ot.KPermutations(dim, dim).generate())
     n_perms = len(perms)
-    perm_indices = np.zeros((dim, n_tree))
     c_hat = np.zeros((n_perms, dim, n_tree))
     variance = np.zeros((n_tree, ))
     n_pairs = int(dim * (dim-1) / 2)
