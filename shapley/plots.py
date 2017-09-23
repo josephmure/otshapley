@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+
 from scipy import stats
 
 def set_style_paper():
@@ -212,8 +213,9 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
                 if true_indices is not None:
                     if name in true_indices:
                         mean = np.asarray(true_indices[name])[:, i]
-                ax.plot(corrs, mean, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
-                ax.fill_between(corrs, ci_down, ci_up, interpolate=True, alpha=.5, color=colors[var])
+                #ax.plot(corrs, mean, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
+                ax.plot(corrs, mean, '-', color=colors[var], linewidth=linewidth, markersize=markersize)
+                ax.fill_between(corrs, ci_down, ci_up, interpolate=True, alpha=.15, color=colors[var])
 
     ax.set_ylim(0., 1.)
     ax.set_xlim([-1., 1.])
@@ -224,9 +226,10 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
 
     for name in markers:
         if name in to_plot:
-            patches.append(mlines.Line2D([], [], color='k', marker=markers[name], label=name, linewidth=linewidth, markersize=markersize))
+            if False:
+                patches.append(mlines.Line2D([], [], color='k', marker=markers[name], label=name, linewidth=linewidth, markersize=markersize))
 
-    ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
+    #ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
     ax.set_xlabel('Correlation')
     ax.set_ylabel('Indices')
 
