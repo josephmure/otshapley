@@ -44,28 +44,28 @@ def test_sobol_kriging_ishigami_ind(kernel, library):
     np.testing.assert_array_less(quantiles_total[0, :], model.total_sobol_indices)
     np.testing.assert_array_less(model.total_sobol_indices, quantiles_total[1, :])
     
+if False:
+    @pytest.mark.parametrize("kernel, basis", list(product(OT_KERNELS, OT_BASIS)))
+    def test_sobol_kriging_ishigami_ind_bench_OT(kernel, basis):
+        ot.RandomGenerator.SetSeed(0)
+        np.random.seed(0)
+        model = Ishigami()
+        
+        model_gp = KrigingModel(model=model, input_distribution=model.input_distribution)
+        model_gp.generate_sample(n_sample=MODEL_BUDGET, sampling='lhs', sampling_type='uniform')
+        model_gp.build(library='OT', kernel=kernel, basis_type=basis)
+        
+        sobol = SobolIndices(input_distribution=model.input_distribution)
+        sobol.build_sample(model=model_gp, n_sample=N_SAMPLE, n_realization=N_REALIZATION)
+        sobol_results = sobol.compute_indices(n_boot=N_BOOT, estimator=ESTIMATOR)
 
-@pytest.mark.parametrize("kernel, basis", list(product(OT_KERNELS, OT_BASIS)))
-def test_sobol_kriging_ishigami_ind_bench_OT(kernel, basis):
-    ot.RandomGenerator.SetSeed(0)
-    np.random.seed(0)
-    model = Ishigami()
-    
-    model_gp = KrigingModel(model=model, input_distribution=model.input_distribution)
-    model_gp.generate_sample(n_sample=MODEL_BUDGET, sampling='lhs', sampling_type='uniform')
-    model_gp.build(library='OT', kernel=kernel, basis_type=basis)
-    
-    sobol = SobolIndices(input_distribution=model.input_distribution)
-    sobol.build_sample(model=model_gp, n_sample=N_SAMPLE, n_realization=N_REALIZATION)
-    sobol_results = sobol.compute_indices(n_boot=N_BOOT, estimator=ESTIMATOR)
+        quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(model.dim, -1), [5, 95], axis=1)
+        np.testing.assert_array_less(quantiles_first[0, :], model.first_sobol_indices)
+        np.testing.assert_array_less(model.first_sobol_indices, quantiles_first[1, :])
 
-    quantiles_first = np.percentile(sobol_results.full_first_indices.reshape(model.dim, -1), [5, 95], axis=1)
-    np.testing.assert_array_less(quantiles_first[0, :], model.first_sobol_indices)
-    np.testing.assert_array_less(model.first_sobol_indices, quantiles_first[1, :])
-
-    quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(model.dim, -1), [5, 95], axis=1)
-    np.testing.assert_array_less(quantiles_total[0, :], model.total_sobol_indices)
-    np.testing.assert_array_less(model.total_sobol_indices, quantiles_total[1, :])
+        quantiles_total = np.percentile(sobol_results.full_total_indices.reshape(model.dim, -1), [5, 95], axis=1)
+        np.testing.assert_array_less(quantiles_total[0, :], model.total_sobol_indices)
+        np.testing.assert_array_less(model.total_sobol_indices, quantiles_total[1, :])
              
 THETAS = [[0.5, 0.8, 0.], [-0.5, 0.2, -0.7], [-0.49, -0.49, -0.49]]
 INDICE_TYPES = ['full', 'ind']    
