@@ -73,6 +73,7 @@ def get_pos(dim, j1, j2):
                 return k
             k += 1
 
+
 def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
     """
     """
@@ -178,7 +179,13 @@ def get_transformations(margins, copula, order):
     
     margins = [margins[j] for j in order]
     copula = ot.Copula(copula)
-    params = np.asarray(copula.getParameter())[order_cop]
+    params = np.asarray(copula.getParameter())
+    print('Params: ', params)
+    print('order:', order)
+    print('order_cop: ', order_cop)
+    params = params[order_cop]
+    print('params_cop:', params)
+    print()
     copula.setParameter(params)
 
     # Create the distribution and build the RTs
@@ -190,6 +197,8 @@ def get_transformations(margins, copula, order):
 
 
 def compute_shap_indices(rfq, X, y, dist):
+    """
+    """
     dim = rfq.n_features_
     n_tree = rfq.n_estimators
     trees = rfq.estimators_
@@ -215,22 +224,23 @@ def compute_shap_indices(rfq, X, y, dist):
     for t, tree in enumerate(trees):
         X_tree = X[oob_idx[t]]
         y_tree = y[oob_idx[t]]
-        var_y_tree = y_tree.var()
+        var_y_tree = y_tree.var(ddof=1)
         variance[t] = var_y_tree
         y_pred_tree = tree.predict(X_tree)
         error = ((y_tree - y_pred_tree)**2).mean()
+        c_hat[:, -1, t] = var_y_tree
         for i_p, perm in enumerate(perms):
             # We consider the rotations for the Rosenblatt Transformation (RT)
             order_i = perm
-            order_i_inv = [list(order_i).index(j) for j in range(dim)]            
+            order_i_inv = [list(order_i).index(j) for j in range(dim)]
             # Get the transformations
             transform_i, inv_transform_i = get_transformations(margins, copula, order_i)
             # Iso transformation
-            U_tree = np.asarray(transform_i(X_tree[:, order_i]))            
-            for i in range(dim - 1):       
+            U_tree = np.asarray(transform_i(X_tree[:, order_i]))
+            for i in range(dim - 1):
                 U_tree_i = U_tree.copy()
                 # Permutation of the i-st column (due to rearangement)
-                U_tree_i[:, :i + 1] = np.random.permutation(U_tree_i[:, :i + 1])
+                U_tree_i[:, :i+1] = np.random.permutation(U_tree_i[:, :i+1])
                 
                 # Inverse Iso transformation
                 X_tree_i = inv_transform_i(U_tree_i)
@@ -241,7 +251,6 @@ def compute_shap_indices(rfq, X, y, dist):
                 y_pred_tree_i = tree.predict(X_tree_i)
                 error_i = ((y_tree - y_pred_tree_i)**2).mean()
                 c_hat[i_p, i, t] = (error_i - error)/2.
-            c_hat[i_p, -1, t] = var_y_tree
 
     # Cost variation
     delta_c = c_hat.copy()
