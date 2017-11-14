@@ -130,8 +130,8 @@ class SensitivityResults(object):
         """The Shapley indices estimations.
         """
         if self._shapley_indices is not None:
-            return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
-            #return self._shapley_indices.reshape(self.dim, -1)
+            #return self._shapley_indices.reshape(self.dim, -1).mean(axis=1)
+            return self._shapley_indices.reshape(self.dim, -1)
 
     @shapley_indices.setter
     def shapley_indices(self, indices):
