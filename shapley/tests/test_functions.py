@@ -52,6 +52,97 @@ class Ishigami(ProbabilisticModel):
         else:
             return None
 
+class ProductGaussian(ProbabilisticModel):
+    """
+    """
+    def __init__(self, dim, beta=None):
+        margins = [ot.Normal()]*dim
+        copula = ot.NormalCopula(dim)
+        ProbabilisticModel.__init__(
+                self, 
+                model_func=product_func, 
+                input_distribution=ot.ComposedDistribution(margins, copula))
+        self.beta = beta
+        self.name = 'Product Gaussian'
+
+    @property
+    def beta(self):
+        """
+        """
+        return self._beta
+
+    @beta.setter
+    def beta(self, beta):
+        if beta is None:
+            beta = np.ones((self.dim, ))
+        else:
+            beta = np.asarray(beta)
+
+        self._beta = beta
+
+    @property
+    def first_sobol_indices(self):
+        """
+        """
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        sigma_x = np.sqrt(sigma.diagonal())
+        theta = np.asarray(self.copula.getParameter())
+        var_y = (1. + theta**2) * (beta[0] * beta[1] * sigma_x[0] * sigma_x[1])**2
+        s_corr = np.zeros((dim, ))
+        if dim == 2:
+            s_corr[0] = 2 * (theta * beta[0] * beta[1] * sigma_x[0] * sigma_x[1])**2
+            s_corr[1] = s_corr[0]
+            indices = (s_corr)/ var_y
+            return indices
+
+    @first_sobol_indices.setter
+    def first_sobol_indices(self, indices):
+        self._first_sobol_indices = indices
+
+    @property
+    def total_sobol_indices(self):
+        """
+        """
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        sigma_x = np.sqrt(sigma.diagonal())
+        theta = np.asarray(self.copula.getParameter())
+        var_y = (1. + theta**2) * (beta[0] * beta[1] * sigma_x[0] * sigma_x[1])**2
+        s_corr = np.zeros((dim, ))
+        if dim == 2:
+            s_corr[0] = (1. - theta**2) * beta[0]**2 * beta[1]**2 * sigma_x[0]**2 * sigma_x[1]**2
+            s_corr[1] = s_corr[0]
+            indices = (s_corr)/ var_y
+            return indices
+
+    @total_sobol_indices.setter
+    def total_sobol_indices(self, indices):
+        self._total_sobol_indices = indices
+
+    @property
+    def shapley_indices(self):
+        """
+        """
+        dim = self.dim
+        beta = self.beta
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        sigma_x = np.sqrt(sigma.diagonal())
+        theta = np.asarray(self.copula.getParameter())
+        var_y = (1. + theta**2) * (beta[0] * beta[1] * sigma_x[0] * sigma_x[1])**2
+        s_corr = np.zeros((dim, ))
+        if dim == 2:
+            s_corr[0] = 0.5*(1. + theta**2) * (beta[0] * beta[1] * sigma_x[0] * sigma_x[1])**2
+            s_corr[1] = s_corr[0]
+            indices = (s_corr)/ var_y
+            return indices
+
+    @shapley_indices.setter
+    def shapley_indices(self, indices):
+        self._shapley_indices = indices
+
 
 class AdditiveGaussian(ProbabilisticModel):
     """This class collect all the information about the Additive Gaussian test 
@@ -221,6 +312,24 @@ class AdditiveGaussian(ProbabilisticModel):
     @shapley_indices.setter
     def shapley_indices(self, indices):
         self._shapley_indices = indices
+
+
+def product_func(x, beta=None):
+    """
+    """
+    x = np.asarray(x)
+    if x.ndim == 1:
+        dim = x.shape[0]
+    else:
+        n_sample, dim = x.shape
+
+    if beta is None:
+        beta = np.ones((dim, ))
+    else:
+        beta = np.asarray(beta)
+    y = np.prod(beta * x, axis=1)
+    return y
+
 
 def additive_func(x, beta=None):
     """

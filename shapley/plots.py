@@ -236,7 +236,7 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
     return ax
 
 
-def plot_error(results, x, true_results, ax=None, figsize=(7, 4), ylim=None, alpha=[2.5, 97.5], loc=0, logscale=False, legend=True):
+def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None, figsize=(7, 4), ylim=None, alpha=0.95, loc=0, logscale=False, legend=True):
     """
     """
     if ax is None:
@@ -255,16 +255,41 @@ def plot_error(results, x, true_results, ax=None, figsize=(7, 4), ylim=None, alp
     sorted_x = np.argsort(x)
     for i, name in enumerate(results):
         result = results[name]
+        result_SE = results_SE[name]
         true_indices = true_results[name]
         dim = true_indices.shape[0]
+        n_boot = result.shape[-1]
+        z_alpha = stats.norm.ppf(alpha*0.5)
+        # Estimation without bootstrap
         no_boot_estimation = result[:, :, :, 0]
-        quantiles = np.percentile(result[:, :, :, 1:], alpha, axis=3)
-        error_up = 2*no_boot_estimation - quantiles[0]
-        error_down = 2*no_boot_estimation - quantiles[1]
-        cover = ((error_down < true_indices.reshape(1, 1, dim)) & (error_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
-        error = (2*abs(no_boot_estimation - true_indices / (no_boot_estimation + true_indices))).mean(axis=2)
+
+        if n_boot > 1:
+            boot_estimation = result[:, :, :, 1:]
+            # Quantile of Gaussian of the empirical CDF at the no_boot estimation
+            z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
+
+            # Quantile func of the empirical bootstrap distribution
+            tmp_up = stats.norm.cdf(2*z_0 - z_alpha)
+            tmp_down = stats.norm.cdf(2*z_0 + z_alpha)
+
+            n_N = result.shape[0]
+            n_test = result.shape[1]
+
+            ci_up = np.zeros((n_N, n_test, dim))
+            ci_down = np.zeros((n_N, n_test, dim))
+            for i in range(n_N):
+                for j in range(n_test):
+                    for d in range(dim):
+                        ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
+                        ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
+
+        else:
+            ci_up = no_boot_estimation - z_alpha * result_SE.squeeze()
+            ci_down = no_boot_estimation + z_alpha * result_SE.squeeze()
+            
+        cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
         error = (abs(no_boot_estimation - true_indices)).mean(axis=2)
-        error_quants = np.percentile(error, [5, 95], axis=1)
+        error_quants = np.percentile(error, [2.5, 97.5], axis=1)
 
         lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage %s' % (name), linewidth=2, color=colors[name])
         lns2 = ax2.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
@@ -306,8 +331,10 @@ def plot_var(results, x, ax=None, figsize=(7, 4), ylim=None, alpha=[2.5, 97.5], 
         no_boot_estimation = result[:, :, :, 0]
         mean = result[:, :, :, 1:].mean(axis=3).mean(axis=2)
         std = result[:, :, :, 1:].std(axis=3).mean(axis=2)
+        #mean = no_boot_estimation.mean(axis=2)
+        #std = no_boot_estimation.std(axis=2)
         cov = abs(std/mean)
-        cov_quants = np.percentile(cov, [5, 95], axis=1)
+        cov_quants = np.percentile(cov, [2.5, 97.5], axis=1)
         lns1 = ax.plot(x[sorted_x], cov.mean(axis=1)[sorted_x], '-', label='COV %s' % (name), linewidth=2, color=colors[name])
         ax.fill_between(x[sorted_x], cov.mean(axis=1)[sorted_x], cov_quants[0][sorted_x], alpha=0.3, color=colors[name])
         ax.fill_between(x[sorted_x], cov.mean(axis=1)[sorted_x], cov_quants[1][sorted_x], alpha=0.3, color=colors[name])

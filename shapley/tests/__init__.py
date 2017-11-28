@@ -1,1 +1,1 @@
-from .test_functions import Ishigami, AdditiveGaussian
+from .test_functions import Ishigami, AdditiveGaussian, ProductGaussian

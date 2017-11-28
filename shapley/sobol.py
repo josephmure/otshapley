@@ -153,7 +153,9 @@ class SobolIndices(BaseIndices):
             order_i = np.roll(range(dim), -i)
             order_i_inv = np.roll(range(dim), i)
             order_cop = np.roll(range(n_pairs), i)
+
             margins_i = [margins[j] for j in order_i]
+
             params_i = np.asarray(copula.getParameter())[order_cop]
 
             copula.setParameter(params_i)

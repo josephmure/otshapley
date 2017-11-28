@@ -52,7 +52,7 @@ class SensitivityResults(object):
     """
     """
     def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
-                 true_total_indices=None, true_shapley_indices=None):
+                 true_total_indices=None, true_shapley_indices=None, shapley_indices_SE=None, total_indices_SE=None, first_indices_SE=None):
         self.dim = None
         self.n_boot = None
         self.n_realization = None
@@ -63,6 +63,9 @@ class SensitivityResults(object):
         self.true_first_indices = true_first_indices
         self.true_total_indices = true_total_indices
         self.true_shapley_indices = true_shapley_indices
+        self.shapley_indices_SE = shapley_indices_SE
+        self.total_indices_SE = total_indices_SE
+        self.first_indices_SE = first_indices_SE
 
     @property
     def var_names(self):
