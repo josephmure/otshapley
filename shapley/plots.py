@@ -23,7 +23,7 @@ def set_style_paper():
     })
 
 
-def plot_sensitivity_results(results, kind='violin', indice='all', ax=None):
+def plot_sensitivity_results(results, kind='violin', indice='all', ax=None, alpha_ci=0.05):
     """Plot the result of the sensitivy result class
 
     Parameters
@@ -61,8 +61,11 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None):
     if kind == 'violin':
         sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
     elif kind == 'box':
-        # TODO: to correct
-        sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
+        if results.n_boot > 1:
+            sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
+        else:
+            z_alpha = stats.norm.ppf(alpha_ci*0.5)
+            ci_up = results.shapley_indices + z_alpha*results.shapley_indices_SE
     else:
         raise ValueError('Unknow kind {0}'.format(kind))
 
@@ -284,9 +287,10 @@ def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None,
                         ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
 
         else:
-            ci_up = no_boot_estimation - z_alpha * result_SE.squeeze()
-            ci_down = no_boot_estimation + z_alpha * result_SE.squeeze()
+            ci_up = no_boot_estimation - z_alpha * result_SE
+            ci_down = no_boot_estimation + z_alpha * result_SE
             
+        # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
         error = (abs(no_boot_estimation - true_indices)).mean(axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)

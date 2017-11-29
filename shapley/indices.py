@@ -2,6 +2,10 @@ import openturns as ot
 import numpy as np
 import pandas as pd
 
+from scipy import stats
+
+from collections import OrderedDict
+
 from .utils import DF_NAMES
 
 class BaseIndices(object):
@@ -52,7 +56,7 @@ class SensitivityResults(object):
     """
     """
     def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
-                 true_total_indices=None, true_shapley_indices=None, shapley_indices_SE=None, total_indices_SE=None, first_indices_SE=None):
+                 true_total_indices=None, true_shapley_indices=None, shapley_indices_SE=None, total_indices_SE=None, first_indices_SE=None, estimation_method=None):
         self.dim = None
         self.n_boot = None
         self.n_realization = None
@@ -66,6 +70,53 @@ class SensitivityResults(object):
         self.shapley_indices_SE = shapley_indices_SE
         self.total_indices_SE = total_indices_SE
         self.first_indices_SE = first_indices_SE
+        self.estimation_method = estimation_method
+
+    def get_indices_confidence_intervals(self, alpha_ci=0.05):
+        """
+        """
+        if self.estimation_method == 'random':
+            z_alpha = stats.norm.ppf(alpha_ci*0.5)
+            
+            dim = self.dim
+            feat_indices = 'Indices'
+            columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
+            all_df = []
+            names = (DF_NAMES['var'], 'Bounds')
+            idx = [columns, ['Min', 'Max']]
+            index = pd.MultiIndex.from_product(idx, names=names)
+            all_df = []
+            if self._first_indices is not None:
+                ci_up = self._first_indices[:, 0] - z_alpha*self._first_indices_SE
+                ci_down = self._first_indices[:, 0] + z_alpha*self._first_indices_SE
+                ci = np.asarray([ci_down, ci_up]).T
+                df = pd.DataFrame(ci.ravel(), columns=[DF_NAMES['val']], index=index)
+                df = pd.melt(df.T, value_name=DF_NAMES['val'])
+                df[feat_indices] = DF_NAMES['1st']
+                all_df.append(df)
+            if self._total_indices is not None:
+                ci_up = self._total_indices[:, 0] - z_alpha*self._total_indices_SE
+                ci_down = self._total_indices[:, 0] + z_alpha*self._total_indices_SE
+                ci = np.asarray([ci_down, ci_up]).T
+                df = pd.DataFrame(ci.ravel(), columns=[DF_NAMES['val']], index=index)
+                df = pd.melt(df.T, value_name=DF_NAMES['val'])
+                df[feat_indices] = DF_NAMES['tot']
+                all_df.append(df)
+            if self._shapley_indices is not None:
+                ci_up = self._shapley_indices[:, 0] - z_alpha*self._shapley_indices_SE
+                ci_down = self._shapley_indices[:, 0] + z_alpha*self._shapley_indices_SE
+                ci = np.asarray([ci_down, ci_up]).T
+                df = pd.DataFrame(ci.ravel(), columns=[DF_NAMES['val']], index=index)
+                df = pd.melt(df.T, value_name=DF_NAMES['val'])
+                df[feat_indices] = DF_NAMES['shap']
+                all_df.append(df)
+
+
+            return pd.concat(all_df)
+
+
+        else:
+            print("Cant't compute asymptotical confidence intervals for exact method.")
 
     @property
     def var_names(self):
@@ -86,7 +137,7 @@ class SensitivityResults(object):
     def true_indices(self):
         """The true sensitivity results.
         """
-        data = {}
+        data = OrderedDict()
         if self.true_first_indices is not None:
             data['True first'] = self.true_first_indices
         if self.true_total_indices is not None:
@@ -113,6 +164,45 @@ class SensitivityResults(object):
             indices = np.asarray(indices)
             self.dim, self.n_boot, self.n_realization = self._check_indices(indices)
         self._first_indices = indices
+
+    @property
+    def first_indices_SE(self):
+        """The first sobol sensitivity estimation for c.i.
+        """
+        if self._first_indices_SE is not None:
+            return self._first_indices_SE.reshape(self.dim, -1).mean(axis=1)
+
+    @first_indices_SE.setter
+    def first_indices_SE(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+        self._first_indices_SE = indices
+
+    @property
+    def total_indices_SE(self):
+        """The total sobol sensitivity estimation for c.i.
+        """
+        if self._total_indices_SE is not None:
+            return self._total_indices_SE.reshape(self.dim, -1).mean(axis=1)
+
+    @total_indices_SE.setter
+    def total_indices_SE(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+        self._total_indices_SE = indices
+
+    @property
+    def shapley_indices_SE(self):
+        """The shapley sensitivity estimation for c.i.
+        """
+        if self._shapley_indices_SE is not None:
+            return self._shapley_indices_SE.reshape(self.dim, -1).mean(axis=1)
+
+    @shapley_indices_SE.setter
+    def shapley_indices_SE(self, indices):
+        if indices is not None:
+            indices = np.asarray(indices)
+        self._shapley_indices_SE = indices
 
     @property
     def total_indices(self):
