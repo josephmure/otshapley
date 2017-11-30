@@ -292,7 +292,7 @@ def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None,
             
         # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
-        error = (abs(no_boot_estimation - true_indices)).mean(axis=2)
+        error = (abs(no_boot_estimation - true_indices) / (1)).mean(axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)
 
         lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage %s' % (name), linewidth=2, color=colors[name])
