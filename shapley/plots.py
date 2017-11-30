@@ -239,11 +239,62 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
     return ax
 
 
-def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None, figsize=(7, 4), ylim=None, alpha=0.95, loc=0, logscale=False, legend=True):
+def plot_error(results, true_results, x, ax=None, 
+               figsize=(7, 4), ylim=[0., None], loc=0, logscale=False, legend=False,
+               error_type='absolute'):
     """
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
+        
+    colors = {
+        'Shapley': 'b',
+        'First Sobol': 'r',
+        'Total Sobol': 'g'
+    }
+    
+    lns = []
+    if logscale:
+        ax.set_yscale('log')
+
+    sorted_x = np.argsort(x)
+    for i, name in enumerate(results):
+        result = results[name]
+        true_indices = true_results[name]        
+        
+        # Estimation without bootstrap
+        no_boot_estimation = result[:, :, :, 0]
+            
+        # Shows the absolute error or relative
+        norm = 1 if error_type == 'absolute' else true_indices
+        error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
+        error_quants = np.percentile(error, [2.5, 97.5], axis=1)
+
+        lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
+        ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
+        ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
+
+        lns.extend(lns2)
+
+    ax.set_xlim(x[sorted_x][0], x[sorted_x][-1])
+    
+    labs = [l.get_label() for l in lns]
+    if legend:
+        ax.legend(lns, labs, loc=loc)
+        
+    label = 'Absolute' if error_type else 'Relative'
+    ax.set_ylabel('%s error' % label)
+
+    return ax
+
+def plot_cover(results, true_results, x, ax=None, figsize=(7, 4), 
+               ylim=[0., None], ci_prob=0.95, loc=0, logscale=False, legend=True,
+               error_type='absolute'):
+    """
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        
     colors = {
         'Shapley': 'b',
         'First Sobol': 'r',
@@ -262,7 +313,7 @@ def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None,
         true_indices = true_results[name]
         dim = true_indices.shape[0]
         n_boot = result.shape[-1]
-        z_alpha = stats.norm.ppf(alpha*0.5)
+        z_alpha = stats.norm.ppf(ci_prob*0.5)
         # Estimation without bootstrap
         no_boot_estimation = result[:, :, :, 0]
 
@@ -292,7 +343,9 @@ def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None,
             
         # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
-        error = (abs(no_boot_estimation - true_indices) / (1)).mean(axis=2)
+        # Shows the absolute error or relative
+        norm = 1 if error_type == 'absolute' else true_indices
+        error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)
 
         lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage %s' % (name), linewidth=2, color=colors[name])
@@ -311,7 +364,9 @@ def plot_error(results, x, true_results, n_perms=None, results_SE=None, ax=None,
     labs = [l.get_label() for l in lns]
     if legend:
         ax2.legend(lns, labs, loc=loc)
-    ax2.set_ylabel('Absolute Error')
+        
+    label = 'Absolute' if absolute_error else 'Relative'
+    ax2.set_ylabel('%s error' % label)
 
     return ax, ax2
 
