@@ -287,8 +287,8 @@ def plot_error(results, true_results, x, ax=None,
 
     return ax
 
-def plot_cover(results, true_results, x, ax=None, figsize=(7, 4), 
-               ylim=[0., None], ci_prob=0.95, loc=0, logscale=False, legend=True,
+def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4), 
+               ylim=[0., None], ci_prob=0.95, loc=0, legend=True,
                error_type='absolute'):
     """
     """
@@ -301,15 +301,13 @@ def plot_cover(results, true_results, x, ax=None, figsize=(7, 4),
         'Total Sobol': 'g'
     }
     
-    ax2 = ax.twinx()
     lns = []
-    if logscale:
-        ax2.set_yscale('log')
 
     sorted_x = np.argsort(x)
     for i, name in enumerate(results):
         result = results[name]
-        result_SE = results_SE[name]
+        if results_SE is not None:
+            result_SE = results_SE[name]
         true_indices = true_results[name]
         dim = true_indices.shape[0]
         n_boot = result.shape[-1]
@@ -343,32 +341,17 @@ def plot_cover(results, true_results, x, ax=None, figsize=(7, 4),
             
         # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
-        # Shows the absolute error or relative
-        norm = 1 if error_type == 'absolute' else true_indices
-        error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
-        error_quants = np.percentile(error, [2.5, 97.5], axis=1)
 
-        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage %s' % (name), linewidth=2, color=colors[name])
-        lns2 = ax2.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
-        ax2.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
-        ax2.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
+        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage of %s' % (name), linewidth=2, color=colors[name])
+        lns.extend(lns1)
 
-        lns.extend(lns1+lns2)
-
-    ax.set_xlabel('$N_i$')
-    ax.set_ylabel('Coverage')
-    ax.set_xlim(x[sorted_x][0], x[sorted_x][-1])
+    xmin, xmax = x[sorted_x][0], x[sorted_x][-1]
+    ax.plot([xmin, xmax], [1. - ci_prob]*2, 'k-.', label='%d%% c.i.' % ((1.- ci_prob)*100))
+    ax.set_ylabel('Coverage Probability')
+    ax.set_xlim(xmin, xmax)
     ax.set_ylim(ylim)
 
-    ax2.set_ylim(0., 1)
-    labs = [l.get_label() for l in lns]
-    if legend:
-        ax2.legend(lns, labs, loc=loc)
-        
-    label = 'Absolute' if absolute_error else 'Relative'
-    ax2.set_ylabel('%s error' % label)
-
-    return ax, ax2
+    return ax
 
 def plot_var(results, x, ax=None, figsize=(7, 4), ylim=None, alpha=[2.5, 97.5], loc=0, logscale=False, legend=True):
     """
