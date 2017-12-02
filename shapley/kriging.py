@@ -1,6 +1,9 @@
 import numpy as np
 import openturns as ot
-import gpflow
+try:
+    import gpflow
+except:
+    pass
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 
 from .model import MetaModel
