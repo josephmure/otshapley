@@ -333,8 +333,8 @@ class ShapleyIndices(BaseIndices):
         delta_c[:, 1:] = c_hat[:, 1:] - c_hat[:, :-1]
         
         for i in range(n_boot):
-            boot_n_perms_idx = boot_perms[:, i]
             if estimation_method == 'random':
+                boot_n_perms_idx = boot_perms[:, i]
                 tmp_perms = perms[boot_n_perms_idx]
             else:
                 tmp_perms = perms
