@@ -289,7 +289,7 @@ def plot_error(results, true_results, x, ax=None,
 
 def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4), 
                ylim=[0., None], ci_prob=0.95, loc=0, legend=True,
-               error_type='absolute', ci_method=2):
+               error_type='absolute', ci_method='tlc'):
     """
     """
     if ax is None:
@@ -315,7 +315,7 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
         # Estimation without bootstrap
         no_boot_estimation = result[:, :, :, 0]
 
-        if n_boot > 1:
+        if ci_method == 'bootstrap':
             boot_estimation = result[:, :, :, 1:]
             if ci_method == 1:
                 quantiles = np.percentile(boot_estimation, [ci_prob/2*100, (1.-ci_prob/2)*100], axis=3)
@@ -340,7 +340,7 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
                             ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
                             ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
 
-        else:
+        elif ci_method == 'tlc':
             ci_up = no_boot_estimation - z_alpha * result_SE
             ci_down = no_boot_estimation + z_alpha * result_SE
             
