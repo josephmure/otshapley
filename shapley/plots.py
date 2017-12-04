@@ -321,8 +321,6 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
                 quantiles = np.percentile(boot_estimation, [ci_prob/2*100, (1.-ci_prob/2)*100], axis=3)
                 ci_up = 2*no_boot_estimation - quantiles[0]
                 ci_down = 2*no_boot_estimation - quantiles[1]
-                #ci_up = quantiles[1]
-                #ci_down = quantiles[0]
             else:
                 # Quantile of Gaussian of the empirical CDF at the no_boot estimation
                 z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
