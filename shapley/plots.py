@@ -317,23 +317,30 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
 
         if ci_method == 'bootstrap':
             boot_estimation = result[:, :, :, 1:]
-            # Quantile of Gaussian of the empirical CDF at the no_boot estimation
-            z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
+            if ci_method == 1:
+                quantiles = np.percentile(boot_estimation, [ci_prob/2*100, (1.-ci_prob/2)*100], axis=3)
+                ci_up = 2*no_boot_estimation - quantiles[0]
+                ci_down = 2*no_boot_estimation - quantiles[1]
+                #ci_up = quantiles[1]
+                #ci_down = quantiles[0]
+            else:
+                # Quantile of Gaussian of the empirical CDF at the no_boot estimation
+                z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
 
-            # Quantile func of the empirical bootstrap distribution
-            tmp_up = stats.norm.cdf(2*z_0 - z_alpha)
-            tmp_down = stats.norm.cdf(2*z_0 + z_alpha)
+                # Quantile func of the empirical bootstrap distribution
+                tmp_up = stats.norm.cdf(2*z_0 - z_alpha)
+                tmp_down = stats.norm.cdf(2*z_0 + z_alpha)
 
-            n_N = result.shape[0]
-            n_test = result.shape[1]
+                n_N = result.shape[0]
+                n_test = result.shape[1]
 
-            ci_up = np.zeros((n_N, n_test, dim))
-            ci_down = np.zeros((n_N, n_test, dim))
-            for i in range(n_N):
-                for j in range(n_test):
-                    for d in range(dim):
-                        ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
-                        ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
+                ci_up = np.zeros((n_N, n_test, dim))
+                ci_down = np.zeros((n_N, n_test, dim))
+                for i in range(n_N):
+                    for j in range(n_test):
+                        for d in range(dim):
+                            ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
+                            ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
 
         elif ci_method == 'tlc':
             ci_up = no_boot_estimation - z_alpha * result_SE
