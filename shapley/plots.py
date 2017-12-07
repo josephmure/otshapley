@@ -270,7 +270,7 @@ def plot_error(results, true_results, x, ax=None,
         error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)
 
-        lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
+        lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='%s error' % (name), linewidth=2, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
 
@@ -310,7 +310,6 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
             result_SE = results_SE[name]
         true_indices = true_results[name]
         dim = true_indices.shape[0]
-        n_boot = result.shape[-1]
         z_alpha = stats.norm.ppf(ci_prob*0.5)
         # Estimation without bootstrap
         no_boot_estimation = result[:, :, :, 0]
@@ -340,14 +339,14 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
                             ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
                             ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
 
-        elif ci_method == 'tlc':
+        elif ci_method == 'lct':
             ci_up = no_boot_estimation - z_alpha * result_SE
             ci_down = no_boot_estimation + z_alpha * result_SE
             
         # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
 
-        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage of %s' % (name), linewidth=2, color=colors[name])
+        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='%s coverage' % (name), linewidth=2, color=colors[name])
         lns.extend(lns1)
 
     xmin, xmax = x[sorted_x][0], x[sorted_x][-1]
