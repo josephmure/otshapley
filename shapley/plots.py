@@ -40,7 +40,7 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None, alph
         The ploted result.
     """
     if indice == 'all':
-        df_indices = results.df_shapley_indices
+        df_indices = results.df_indices
         hue = 'Indices'
         split = False
     elif indice == 'first':

@@ -180,12 +180,12 @@ def get_transformations(margins, copula, order):
     margins = [margins[j] for j in order]
     copula = ot.Copula(copula)
     params = np.asarray(copula.getParameter())
-    print('Params: ', params)
-    print('order:', order)
-    print('order_cop: ', order_cop)
+#    print('Params: ', params)
+#    print('order:', order)
+#    print('order_cop: ', order_cop)
     params = params[order_cop]
-    print('params_cop:', params)
-    print()
+#    print('params_cop:', params)
+#    print()
     copula.setParameter(params)
 
     # Create the distribution and build the RTs
