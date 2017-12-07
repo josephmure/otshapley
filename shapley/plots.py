@@ -40,7 +40,7 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None, alph
         The ploted result.
     """
     if indice == 'all':
-        df_indices = results.df_indices
+        df_indices = results.df_shapley_indices
         hue = 'Indices'
         split = False
     elif indice == 'first':
@@ -317,7 +317,7 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
 
         if ci_method == 'bootstrap':
             boot_estimation = result[:, :, :, 1:]
-            if ci_method == 1:
+            if False:
                 quantiles = np.percentile(boot_estimation, [ci_prob/2*100, (1.-ci_prob/2)*100], axis=3)
                 ci_up = 2*no_boot_estimation - quantiles[0]
                 ci_down = 2*no_boot_estimation - quantiles[1]

@@ -1,6 +1,7 @@
 import numpy as np
 import openturns as ot
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
+from skgarden import RandomForestQuantileRegressor
 from sklearn.ensemble.forest import _generate_unsampled_indices  
 #from skopt import BayesSearchCV
 from skopt.space import Integer
