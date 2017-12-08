@@ -11,7 +11,6 @@ set_style_paper()
 
 # In[9]:
 
-
 dim = 3
 corr = 0.
 
@@ -22,7 +21,7 @@ model = Model(dim=dim, beta=beta)
 model.margins = [ot.Normal()]*(dim-1) + [ot.Normal(0, 2.)]
 theta = [0., 0., corr]
 model.copula_parameters = theta
-    
+
 true_results = {
     'Shapley': model.shapley_indices,
     'First Sobol': model.first_sobol_indices,
@@ -31,13 +30,13 @@ true_results = {
 
 # In[12]:
 
-
 method = 'random'
 n_var = 10000
 n_boot = 500
 n_run = 100
 
 name_axes = 'N_i'
+#all_n_axes = [1, 3, 9]
 all_n_axes = [3, 9, 18]
 all_n_axes = np.asarray(all_n_axes)
 n_n_axes = len(all_n_axes)
@@ -51,7 +50,7 @@ assert name_axes != name_ticks, "Don't put the same parameters"
 
 # For random case
 name_fixed = 'N_o'
-n_fixed = 1
+n_fixed = 3
 
 if method == 'exact':
     n_perms = None
@@ -71,6 +70,8 @@ else:
     
 print('Minimum values for {}: {}'.format(name_ticks, tmp))
 assert (tmp > 0).all(), "Wrong minimum for min_n_ticks"
+
+#%%
 
 all_shapley_results = np.zeros((n_n_ticks, n_n_axes, n_run, dim, n_boot))
 all_first_results = np.zeros((n_n_ticks, n_n_axes, n_run, dim, n_boot))
@@ -204,7 +205,7 @@ if savefig:
     figname += 'Nv_%d_Nboot_%d_Nrun_%d_ax_%s_tick_%s' % (n_var, n_boot, n_run, name_axes, name_ticks)
     figname += 'naxes_%d_nticks_%d_mintick_%d_maxtick_%d' % (n_n_axes, n_n_ticks, min_n_ticks, max_n_ticks)
     if method == 'random':
-        figname += 'Fix_%s_nfixed_%d' % name_fixed, n_fixed
+        figname += 'Fix_%s_nfixed_%d' % (name_fixed, n_fixed)
     figname += 'ciprob_%.2f_error_%s_%s' % (ci_prob, error_type, ci_method)
     fig.savefig(figname + '.pdf', bbox_inches='tight')
     fig.savefig(figname + '.png', bbox_inches='tight')

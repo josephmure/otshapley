@@ -253,17 +253,17 @@ class SensitivityResults(object):
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         all_df = []
         if self._first_indices is not None:
-            df_first = panel_data(self._first_indices, columns=columns)
+            df_first = self.full_df_first_indices
             df_first_melt = pd.melt(df_first.T, value_name=DF_NAMES['val'])
             df_first_melt[feat_indices] = DF_NAMES['1st']
             all_df.append(df_first_melt)
         if self._total_indices is not None:
-            df_total = panel_data(self._total_indices, columns=columns)
+            df_total = self.full_df_total_indices
             df_total_melt = pd.melt(df_total.T, value_name=DF_NAMES['val'])
             df_total_melt[feat_indices] = DF_NAMES['tot']
             all_df.append(df_total_melt)
         if self._shapley_indices is not None:
-            df_shapley = panel_data(self._shapley_indices, columns=columns)
+            df_shapley = self.full_df_shapley_indices
             df_shapley_melt = pd.melt(df_shapley.T, value_name=DF_NAMES['val'])
             df_shapley_melt[feat_indices] = DF_NAMES['shap']
             all_df.append(df_shapley_melt)
@@ -328,8 +328,7 @@ class SensitivityResults(object):
         if self.n_boot > 1:
             s = 1
         else:
-            s = 0
-            
+            s = 0            
         df = panel_data(self._first_indices[:, s:], columns=columns)
         return df
 
@@ -342,8 +341,7 @@ class SensitivityResults(object):
         if self.n_boot > 1:
             s = 1
         else:
-            s = 0
-            
+            s = 0            
         df = panel_data(self._total_indices[:, s:], columns=columns)
         return df
 
@@ -367,9 +365,11 @@ class SensitivityResults(object):
         df_all = []
         df = self.full_df_first_indices
         if self.n_realization > 1:
-            df_all.append(melt_kriging(df))
+            df_kriging = melt_kriging(df).drop(DF_NAMES['gp'], axis=1)
+            df_all.append(df_kriging)
         if self.n_boot > 1:
-            df_all.append(melt_boot(df))
+            df_boot = melt_boot(df).drop(DF_NAMES['mc'], axis=1)
+            df_all.append(df_boot)
         return pd.concat(df_all)
 
     @property
@@ -379,9 +379,11 @@ class SensitivityResults(object):
         df_all = []
         df = self.full_df_total_indices
         if self.n_realization > 1:
-            df_all.append(melt_kriging(df))
+            df_kriging = melt_kriging(df).drop(DF_NAMES['gp'], axis=1)
+            df_all.append(df_kriging)
         if self.n_boot > 1:
-            df_all.append(melt_boot(df))
+            df_boot = melt_boot(df).drop(DF_NAMES['mc'], axis=1)
+            df_all.append(df_boot)
         return pd.concat(df_all)
 
     @property

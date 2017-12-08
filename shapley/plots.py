@@ -263,13 +263,15 @@ def plot_error(results, true_results, x, ax=None,
         true_indices = true_results[name]        
         
         # Estimation without bootstrap
-        no_boot_estimation = result[:, :, :, 0]
-            
+        no_boot_estimation = result[:, :, :, 0]        
+        
         # Shows the absolute error or relative
         norm = 1 if error_type == 'absolute' else true_indices
-        error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
+        
+        # It can happens that some results have nan values due to low number of permuations for example
+        error = np.nanmean((abs(no_boot_estimation - true_indices) / norm ), axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)
-
+        
         lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='%s error' % (name), linewidth=2, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
