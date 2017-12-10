@@ -2,6 +2,8 @@ import openturns as ot
 import numpy as np
 import matplotlib.pyplot as plt
 from math import factorial
+import matplotlib as mpl
+mpl.use('Agg')
 
 from shapley import ShapleyIndices
 from shapley.tests import ProductGaussian, AdditiveGaussian
@@ -23,7 +25,7 @@ theta = [0., 0., corr]
 model.copula_parameters = theta
 
 true_results = {
-    'Shapley': model.shapley_indices,
+        'Shapley': model.shapley_indices,
     'First Sobol': model.first_sobol_indices,
     'Total Sobol': model.total_sobol_indices
 }
