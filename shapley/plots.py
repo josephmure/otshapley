@@ -59,7 +59,11 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None, alph
         raise ValueError('Unknow indice parameter {0}'.format(indice))
 
     if kind == 'violin':
-        sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
+        if indice != 'all':
+            sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
+        else:
+            sns.color_palette("Paired")
+            sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax, palette="hls")
     elif kind == 'box':
         if results.n_boot > 1:
             sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
