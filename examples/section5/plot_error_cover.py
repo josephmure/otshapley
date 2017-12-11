@@ -32,7 +32,7 @@ true_results = {
 
 # In[12]:
 
-method = 'random'
+method = 'exact'
 n_var = 10000
 n_boot = 500
 n_run = 100
@@ -43,7 +43,7 @@ all_n_axes = [3, 9, 18]
 all_n_axes = np.asarray(all_n_axes)
 n_n_axes = len(all_n_axes)
 
-name_ticks = 'm'
+name_ticks = 'N_o'
 n_n_ticks = 30
 min_n_ticks = 108
 max_n_ticks = 3000
