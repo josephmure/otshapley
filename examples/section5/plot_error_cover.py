@@ -14,11 +14,11 @@ set_style_paper()
 # In[9]:
 
 dim = 3
-corr = 0.
+corr = 0.9
 
 beta = None
 theta = [0., 0., corr]
-Model = Ishigami
+Model = AdditiveGaussian
 
 if Model == AdditiveGaussian:
     model = Model(dim=dim, beta=beta)
