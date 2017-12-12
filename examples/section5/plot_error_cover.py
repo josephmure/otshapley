@@ -1,12 +1,12 @@
 import openturns as ot
 import numpy as np
-import matplotlib.pyplot as plt
-from math import factorial
 import matplotlib as mpl
 mpl.use('Agg')
+import matplotlib.pyplot as plt
+from math import factorial
 
 from shapley import ShapleyIndices
-from shapley.tests import ProductGaussian, AdditiveGaussian
+from shapley.tests import ProductGaussian, AdditiveGaussian, Ishigami
 from shapley.plots import set_style_paper, plot_error, plot_cover
 
 set_style_paper()
@@ -14,15 +14,19 @@ set_style_paper()
 # In[9]:
 
 dim = 3
-corr = 0.
+corr = 0.9
 
 beta = None
+theta = [0., 0., corr]
 Model = AdditiveGaussian
 
-model = Model(dim=dim, beta=beta)
-model.margins = [ot.Normal()]*(dim-1) + [ot.Normal(0, 2.)]
-theta = [0., 0., corr]
-model.copula_parameters = theta
+if Model == AdditiveGaussian:
+    model = Model(dim=dim, beta=beta)
+    model.margins = [ot.Normal()]*(dim-1) + [ot.Normal(0, 2.)]
+    model.copula_parameters = theta
+elif Model == Ishigami:
+    model = Model()
+    dim = model.dim
 
 true_results = {
         'Shapley': model.shapley_indices,
@@ -37,22 +41,21 @@ n_var = 10000
 n_boot = 500
 n_run = 100
 
-name_axes = 'N_i'
-#all_n_axes = [1, 3, 9]
-all_n_axes = [3, 9, 18]
-all_n_axes = np.asarray(all_n_axes)
-n_n_axes = len(all_n_axes)
-
-name_ticks = 'N_o'
 n_n_ticks = 30
 min_n_ticks = 108
 max_n_ticks = 3000
 
-assert name_axes != name_ticks, "Don't put the same parameters"
+name_axes = 'N_i'
+#all_n_axes = [1, 3, 9]
+all_n_axes = [3, 9, 18]
+
+name_ticks = 'N_o'
 
 # For random case
-name_fixed = 'N_o'
-n_fixed = 3
+name_fixed = 'm'
+n_fixed = 9
+
+assert name_axes != name_ticks, "Don't put the same parameters"
 
 if method == 'exact':
     n_perms = None
@@ -60,6 +63,8 @@ if method == 'exact':
 else:
     assert (name_fixed != name_ticks) and (name_fixed != name_axes), "Don't put the same parameters for the fixed param"
 
+all_n_axes = np.asarray(all_n_axes)
+n_n_axes = len(all_n_axes)
 
 all_n_ticks = np.logspace(np.log10(min_n_ticks), np.log10(max_n_ticks), n_n_ticks, base=10, dtype=int)
 all_n_ticks = np.unique(all_n_ticks)
