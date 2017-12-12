@@ -30,7 +30,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.314, 0.442, 0.]
+            return np.asarray([0.314, 0.442, 0.])
         else:
             return None
         
@@ -39,7 +39,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.56, 0.44, 0.24]
+            return np.asarray([0.56, 0.44, 0.24])
         else:
             return None        
         
@@ -48,7 +48,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.437, 0.441, 0.12]
+            return np.asarray([0.437, 0.441, 0.12])
         else:
             return None
 
@@ -280,7 +280,7 @@ class AdditiveGaussian(ProbabilisticModel):
 
     @property
     def shapley_indices(self):
-        """
+        """Return the Shapley indices
         """
         dim = self.dim
         beta = self.beta
