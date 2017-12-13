@@ -11,16 +11,14 @@ from shapley.plots import set_style_paper, plot_error, plot_cover
 
 set_style_paper()
 
-# In[9]:
-
 dim = 3
-corr = 0.9
+corr = 0.
 
 beta = None
 theta = [0., 0., corr]
-Model = AdditiveGaussian
+Model = Ishigami
 
-if Model == AdditiveGaussian:
+if Model == Ishigami:
     model = Model(dim=dim, beta=beta)
     model.margins = [ot.Normal()]*(dim-1) + [ot.Normal(0, 2.)]
     model.copula_parameters = theta
@@ -36,7 +34,7 @@ true_results = {
 
 # In[12]:
 
-method = 'exact'
+method = 'random'
 n_var = 10000
 n_boot = 500
 n_run = 100
@@ -48,12 +46,13 @@ max_n_ticks = 3000
 name_axes = 'N_i'
 #all_n_axes = [1, 3, 9]
 all_n_axes = [3, 9, 18]
+#all_n_axes = [3]
 
-name_ticks = 'N_o'
+name_ticks = 'm'
 
 # For random case
-name_fixed = 'm'
-n_fixed = 9
+name_fixed = 'N_o'
+n_fixed = 1
 
 assert name_axes != name_ticks, "Don't put the same parameters"
 
