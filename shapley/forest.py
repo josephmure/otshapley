@@ -74,7 +74,7 @@ def get_pos(dim, j1, j2):
             k += 1
 
 
-def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
+def compute_perm_indices(rfq, X, y, dist, indice_type='full', error='mse'):
     """
     """
     dim = rfq.n_features_
@@ -99,7 +99,7 @@ def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
     for t, tree in enumerate(trees):
         X_tree = X[oob_idx[t]]
         y_tree = y[oob_idx[t]]
-        total, first = perm_tree_sobol(tree, X_tree, y_tree, margins, copula, indice_type)
+        total, first = perm_tree_sobol(tree, X_tree, y_tree, margins, copula, indice_type, error=error)
         total_indices[:, t] = total
         first_indices[:, t] = first
             
@@ -108,7 +108,7 @@ def compute_perm_indices(rfq, X, y, dist, indice_type='full'):
     return results_permutation
 
 
-def perm_tree_sobol(tree, X, y, margins, copula, indice_type):
+def perm_tree_sobol(tree, X, y, margins, copula, indice_type, error='mse'):
     """
     """
     if indice_type == 'full':
@@ -118,10 +118,19 @@ def perm_tree_sobol(tree, X, y, margins, copula, indice_type):
     else:
         raise(ValueError('Unknow indice_type: {0}').format(indice_type))
         
+    alpha = 0.1
+    
+    if error == 'mse':
+        cost_func = lambda y, q: (y - q)**2
+    elif error == 'quantile':
+        cost_func = lambda y, q: (y - q) * (alpha - (y <= q)*1.)
+        
     dim = X.shape[1]
     var_y_tree = y.var()
-    y_pred_tree = tree.predict(X)
-    error_tree = ((y - y_pred_tree)**2).mean()
+    y_pred_tree = tree.predict(X, quantile=alpha*100.)
+    error_tree = cost_func(y, y_pred_tree)
+    error_tree_mean = error_tree.mean()
+    error_tree_var = error_tree.var()
     total_indices = np.zeros((dim, ))
     first_indices = np.zeros((dim, ))    
     for i in range(dim):
@@ -155,15 +164,22 @@ def perm_tree_sobol(tree, X, y, margins, copula, indice_type):
         X_tree_i_first = X_tree_i_first[:, order_i_inv]
 
         # Computes the error with the permuted variable
-        y_pred_tree_i_total = tree.predict(X_tree_i_total)
-        y_pred_tree_i_first = tree.predict(X_tree_i_first)
+        y_pred_tree_i_total = tree.predict(X_tree_i_total, quantile=alpha*100.)
+        y_pred_tree_i_first = tree.predict(X_tree_i_first, quantile=alpha*100.)
 
-        error_i_total = ((y - y_pred_tree_i_total)**2).mean()
-        error_i_first = ((y - y_pred_tree_i_first)**2).mean()
+        error_i_total = cost_func(y, y_pred_tree_i_total).mean()
+        error_i_first = cost_func(y, y_pred_tree_i_first).mean()
+        print(cost_func(y, y_pred_tree_i_total).shape)
+        perm_indice_i_total = error_i_total - error_tree_mean
+        perm_indice_i_first= error_i_first - error_tree_mean
 
         # The total sobol indices
-        total_indices[i-dev] = (error_i_total - error_tree) / (2*var_y_tree)
-        first_indices[i-dev] = 1. - (error_i_first - error_tree) / (2*var_y_tree)
+        if error == 'mse':
+            total_indices[i-dev] = 0.5 * perm_indice_i_total / var_y_tree
+            first_indices[i-dev] = 1. - 0.5 * perm_indice_i_first / var_y_tree
+        elif error == 'quantile':
+            total_indices[i-dev] = perm_indice_i_total / var_y_tree / error_tree_mean
+            first_indices[i-dev] = perm_indice_i_first / var_y_tree
         
     return total_indices, first_indices
 
