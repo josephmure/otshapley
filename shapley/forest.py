@@ -118,21 +118,24 @@ def perm_tree_sobol(tree, X, y, margins, copula, indice_type, error='mse'):
     else:
         raise(ValueError('Unknow indice_type: {0}').format(indice_type))
         
-    alpha = 0.1
+    alpha = 0.25
     
     if error == 'mse':
         cost_func = lambda y, q: (y - q)**2
     elif error == 'quantile':
-        cost_func = lambda y, q: (y - q) * (alpha - (y <= q)*1.)
+        cost_func = lambda y, q: (y - q) * ((y <= q)*1. - alpha)
         
     dim = X.shape[1]
     var_y_tree = y.var()
     y_pred_tree = tree.predict(X, quantile=alpha*100.)
+
+    error_y = cost_func(y, np.percentile(y, alpha*100)).mean()
+
     error_tree = cost_func(y, y_pred_tree)
     error_tree_mean = error_tree.mean()
     error_tree_var = error_tree.var()
     total_indices = np.zeros((dim, ))
-    first_indices = np.zeros((dim, ))    
+    first_indices = np.zeros((dim, ))
     for i in range(dim):
         # We consider the rotations for the Rosenblatt Transformation (RT)
         order_i = np.roll(range(dim), -i)
@@ -169,17 +172,17 @@ def perm_tree_sobol(tree, X, y, margins, copula, indice_type, error='mse'):
 
         error_i_total = cost_func(y, y_pred_tree_i_total).mean()
         error_i_first = cost_func(y, y_pred_tree_i_first).mean()
-        print(cost_func(y, y_pred_tree_i_total).shape)
+        
         perm_indice_i_total = error_i_total - error_tree_mean
-        perm_indice_i_first= error_i_first - error_tree_mean
+        perm_indice_i_first = error_i_first - error_tree_mean
 
         # The total sobol indices
         if error == 'mse':
             total_indices[i-dev] = 0.5 * perm_indice_i_total / var_y_tree
             first_indices[i-dev] = 1. - 0.5 * perm_indice_i_first / var_y_tree
         elif error == 'quantile':
-            total_indices[i-dev] = perm_indice_i_total / var_y_tree / error_tree_mean
-            first_indices[i-dev] = perm_indice_i_first / var_y_tree
+            total_indices[i-dev] = 1. - error_i_total / error_y
+            first_indices[i-dev] = 1. - error_i_first / error_y 
         
     return total_indices, first_indices
 
