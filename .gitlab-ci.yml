@@ -1,0 +1,40 @@
+image: python:3.6
+
+stages:
+    - test
+    - deploy
+
+before_script:
+    - export COVERAGE="true"
+    - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
+    - source build_tools/install.sh
+
+run_test:
+    stage: test
+    script:
+        - export COVERAGE="true"
+        - source build_tools/execute.sh
+
+run_test_coverage:
+    stage: test
+    script:
+        - export COVERAGE="true"
+        - source build_tools/execute.sh
+    coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+    artifacts:
+        paths:
+            - build
+        expire_in: 30 day
+
+pages:
+    stage: deploy
+    before_script:
+        - "true"
+    script:
+        - mkdir -p public/coverage
+        - cp -fr build/* public/coverage/
+    dependencies:
+        - run_test_coverage
+    artifacts:
+        paths:
+            - public
