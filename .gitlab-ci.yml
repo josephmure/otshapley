@@ -6,7 +6,7 @@ stages:
 
 before_script:
     - export COVERAGE="true"
-    - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx
+    - apt-get update -qq && apt-get install -y -qq libgl1-mesa-glx qt-sdk
     - source build_tools/install.sh
 
 run_test:
