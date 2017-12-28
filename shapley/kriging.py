@@ -1,7 +1,10 @@
 import numpy as np
 import openturns as ot
-import gpflow
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+try:
+    import gpflow
+except:
+    print('Could not load gpflow')
 
 from .model import MetaModel
 from .utils import test_q2
@@ -113,11 +116,11 @@ class KrigingModel(MetaModel):
         elif library == 'gpflow':
             self.covariance = kernel
             self.basis = basis_type
-            gp = gpflow.gpr.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=self.covariance, mean_function=self.basis)
+            gp = gpflow.models.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=self.covariance, mean_function=self.basis)
             gp.likelihood.variance = 1.E-6
-            gp.likelihood.fixed = True
+            gp.likelihood.trainable = True
             gp.compile()
-            gp.optimize()
+            gpflow.train.ScipyOptimizer().minimize(gp)
 
             def meta_model(X, n_realization):
                 """
@@ -185,7 +188,7 @@ def q2_loo(input_sample, output_sample, library, covariance, basis=None):
             kriging_result.fit(input_sample_i, output_sample_i.ravel())
             meta_model_mean = kriging_result.predict
         elif library == 'gpflow':
-            gp = gpflow.gpr.GPR(input_sample_i, output_sample_i.reshape(-1, 1), covariance, basis)
+            gp = gpflow.models.GPR(input_sample_i, output_sample_i.reshape(-1, 1), covariance, basis)
             gp.likelihood.variance = 1.E-6
             gp.optimize()
             meta_model_mean = lambda X: gp.predict_y(X)[0].squeeze()
@@ -216,7 +219,7 @@ def get_basis(basis_type, dim, library):
         if basis_type == 'constant':
             basis = gpflow.mean_functions.Constant()
         elif basis_type == 'linear':
-            basis = gpflow.mean_functions.Linear(np.zeros((dim, 1)), 0)
+            basis = gpflow.mean_functions.Linear(np.zeros((dim, 1)), 0.)
         elif basis_type == 'quadratic':
             const1 = gpflow.mean_functions.Constant(np.ones(1))
             const2 = gpflow.mean_functions.Constant(np.ones(1))

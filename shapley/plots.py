@@ -59,7 +59,11 @@ def plot_sensitivity_results(results, kind='violin', indice='all', ax=None, alph
         raise ValueError('Unknow indice parameter {0}'.format(indice))
 
     if kind == 'violin':
-        sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
+        if indice != 'all':
+            sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax)
+        else:
+            sns.color_palette("Paired")
+            sns.violinplot(x='Variables', y='Indice values', data=df_indices, hue=hue, split=split, ax=ax, palette="hls")
     elif kind == 'box':
         if results.n_boot > 1:
             sns.boxplot(x='Variables', y='Indice values', hue='Indices', data=df_indices, ax=ax)
@@ -216,9 +220,9 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
                 if true_indices is not None:
                     if name in true_indices:
                         mean = np.asarray(true_indices[name])[:, i]
-                #ax.plot(corrs, mean, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
+                ax.plot(corrs, mean, '--', marker=markers[name], color=colors[var], linewidth=linewidth, markersize=markersize)
                 ax.plot(corrs, mean, '-', color=colors[var], linewidth=linewidth, markersize=markersize)
-                ax.fill_between(corrs, ci_down, ci_up, interpolate=True, alpha=.15, color=colors[var])
+                ax.fill_between(corrs, ci_down, ci_up, interpolate=True, alpha=.3, color=colors[var])
 
     ax.set_ylim(0., 1.)
     ax.set_xlim([-1., 1.])
@@ -229,10 +233,10 @@ def plot_correlation_indices(result_indices, corrs, n_boot, true_indices=None, t
 
     for name in markers:
         if name in to_plot:
-            if False:
+            if True:
                 patches.append(mlines.Line2D([], [], color='k', marker=markers[name], label=name, linewidth=linewidth, markersize=markersize))
 
-    #ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
+    ax.legend(loc=0, handles=patches, fontsize=11, ncol=2)
     ax.set_xlabel('Correlation')
     ax.set_ylabel('Indices')
 
@@ -263,14 +267,16 @@ def plot_error(results, true_results, x, ax=None,
         true_indices = true_results[name]        
         
         # Estimation without bootstrap
-        no_boot_estimation = result[:, :, :, 0]
-            
+        no_boot_estimation = result[:, :, :, 0]        
+        
         # Shows the absolute error or relative
         norm = 1 if error_type == 'absolute' else true_indices
-        error = (abs(no_boot_estimation - true_indices) / norm ).mean(axis=2)
+        
+        # It can happens that some results have nan values due to low number of permuations for example
+        error = np.nanmean((abs(no_boot_estimation - true_indices) / norm ), axis=2)
         error_quants = np.percentile(error, [2.5, 97.5], axis=1)
-
-        lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='Error %s' % (name), linewidth=2, color=colors[name])
+        
+        lns2 = ax.plot(x[sorted_x], error.mean(axis=1)[sorted_x], '--', label='%s error' % (name), linewidth=2, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[0][sorted_x], alpha=0.3, color=colors[name])
         ax.fill_between(x[sorted_x], error.mean(axis=1)[sorted_x], error_quants[1][sorted_x], alpha=0.3, color=colors[name])
 
@@ -289,7 +295,7 @@ def plot_error(results, true_results, x, ax=None,
 
 def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4), 
                ylim=[0., None], ci_prob=0.95, loc=0, legend=True,
-               error_type='absolute'):
+               error_type='absolute', ci_method='tlc'):
     """
     """
     if ax is None:
@@ -310,39 +316,43 @@ def plot_cover(results, true_results, x, results_SE=None, ax=None, figsize=(7, 4
             result_SE = results_SE[name]
         true_indices = true_results[name]
         dim = true_indices.shape[0]
-        n_boot = result.shape[-1]
         z_alpha = stats.norm.ppf(ci_prob*0.5)
         # Estimation without bootstrap
         no_boot_estimation = result[:, :, :, 0]
 
-        if n_boot > 1:
+        if ci_method == 'bootstrap':
             boot_estimation = result[:, :, :, 1:]
-            # Quantile of Gaussian of the empirical CDF at the no_boot estimation
-            z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
+            if False:
+                quantiles = np.percentile(boot_estimation, [ci_prob/2*100, (1.-ci_prob/2)*100], axis=3)
+                ci_up = 2*no_boot_estimation - quantiles[0]
+                ci_down = 2*no_boot_estimation - quantiles[1]
+            else:
+                # Quantile of Gaussian of the empirical CDF at the no_boot estimation
+                z_0 = stats.norm.ppf((boot_estimation <= no_boot_estimation[:, :, :, np.newaxis]).mean(axis=-1))
 
-            # Quantile func of the empirical bootstrap distribution
-            tmp_up = stats.norm.cdf(2*z_0 - z_alpha)
-            tmp_down = stats.norm.cdf(2*z_0 + z_alpha)
+                # Quantile func of the empirical bootstrap distribution
+                tmp_up = stats.norm.cdf(2*z_0 - z_alpha)
+                tmp_down = stats.norm.cdf(2*z_0 + z_alpha)
 
-            n_N = result.shape[0]
-            n_test = result.shape[1]
+                n_N = result.shape[0]
+                n_test = result.shape[1]
 
-            ci_up = np.zeros((n_N, n_test, dim))
-            ci_down = np.zeros((n_N, n_test, dim))
-            for i in range(n_N):
-                for j in range(n_test):
-                    for d in range(dim):
-                        ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
-                        ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
+                ci_up = np.zeros((n_N, n_test, dim))
+                ci_down = np.zeros((n_N, n_test, dim))
+                for i in range(n_N):
+                    for j in range(n_test):
+                        for d in range(dim):
+                            ci_up[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_up[i, j, d]*100.)
+                            ci_down[i, j, d] = np.percentile(boot_estimation[i, j, d], tmp_down[i, j, d]*100.)
 
-        else:
+        elif ci_method == 'lct':
             ci_up = no_boot_estimation - z_alpha * result_SE
             ci_down = no_boot_estimation + z_alpha * result_SE
             
         # Cover with mean over the number of tests
         cover = ((ci_down < true_indices.reshape(1, 1, dim)) & (ci_up > true_indices.reshape(1, 1, dim))).mean(axis=1)
 
-        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='Coverage of %s' % (name), linewidth=2, color=colors[name])
+        lns1 = ax.plot(x[sorted_x], cover.mean(axis=1)[sorted_x], '-', label='%s coverage' % (name), linewidth=2, color=colors[name])
         lns.extend(lns1)
 
     xmin, xmax = x[sorted_x][0], x[sorted_x][-1]

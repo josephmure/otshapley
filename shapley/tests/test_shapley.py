@@ -6,7 +6,7 @@ from shapley.tests.test_functions import Ishigami, AdditiveGaussian
 
 N_BOOT = 1000
 N_PERMS = None
-THETA = [0., 0., 0.7]
+THETA = [0., 0., 0.5]
 
 def test_shapley_gaussian_no_boot():
     ot.RandomGenerator.SetSeed(0)
@@ -24,9 +24,9 @@ def test_shapley_gaussian_no_boot():
     total_indices = shapley_results.total_indices
     shapley_indices = shapley_results.shapley_indices
 
-    np.testing.assert_array_almost_equal(first_indices, model.first_sobol_indices, decimal=2)
-    np.testing.assert_array_almost_equal(total_indices, model.total_sobol_indices, decimal=2)
-    np.testing.assert_array_almost_equal(shapley_indices, model.shapley_indices, decimal=2)
+    np.testing.assert_array_almost_equal(first_indices.ravel(), model.first_sobol_indices, decimal=2)
+    np.testing.assert_array_almost_equal(total_indices.ravel(), model.total_sobol_indices, decimal=2)
+    np.testing.assert_array_almost_equal(shapley_indices.ravel(), model.shapley_indices, decimal=2)
     
     
 def test_shapley_gaussian_boot():

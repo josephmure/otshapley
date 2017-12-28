@@ -283,25 +283,31 @@ class ShapleyIndices(BaseIndices):
         n_first = np.zeros((dim, n_boot, n_realization))
         n_total = np.zeros((dim, n_boot, n_realization))
         c_hat = np.zeros((n_perms, dim, n_boot, n_realization))
+
+        if estimation_method == 'random':
+            boot_perms = np.zeros((n_perms, n_boot), dtype=int)
         
         # TODO: ugly... Do it better
         variance = np.zeros((n_boot, n_realization))
+        perms = np.asarray(perms)
 
         for i in range(n_boot):
             # Bootstrap sample indexes
             # The first iteration is computed over the all sample.
-            if i > 1:
+            if i > 0:
                 boot_var_idx = np.random.randint(0, n_var, size=(n_var, ))
                 if estimation_method == 'exact':
                     boot_No_idx = np.random.randint(0, n_outer, size=(n_outer, ))
                 else:
                     boot_n_perms_idx = np.random.randint(0, n_perms, size=(n_perms, ))
+                    boot_perms[:, i] = boot_n_perms_idx
             else:
                 boot_var_idx = range(n_var)
                 if estimation_method == 'exact':
                     boot_No_idx = range(n_outer)
                 else:
                     boot_n_perms_idx = range(n_perms)
+                    boot_perms[:, i] = boot_n_perms_idx
                 
             # Output variance
             var_y = self.output_sample_1[boot_var_idx].var(axis=0, ddof=1)
@@ -326,21 +332,28 @@ class ShapleyIndices(BaseIndices):
         delta_c = c_hat.copy()
         delta_c[:, 1:] = c_hat[:, 1:] - c_hat[:, :-1]
         
-        # Estimate Shapley, main and total Sobol effects
-        for i_p, perm in enumerate(perms):
-            # Shapley effect
-            shapley_indices[perm] += delta_c[i_p]
-            shapley_indices_2[perm] += delta_c[i_p, :, 0]**2
+        for i in range(n_boot):
+            if estimation_method == 'random':
+                boot_n_perms_idx = boot_perms[:, i]
+                tmp_perms = perms[boot_n_perms_idx]
+            else:
+                tmp_perms = perms
 
-            # Total effect
-            total_indices[perm[0]] += c_hat[i_p, 0]
-            total_indices_2[perm[0]] += c_hat[i_p, 0, 0]**2
-            n_total[perm[0]] += 1
+            # Estimate Shapley, main and total Sobol effects
+            for i_p, perm in enumerate(tmp_perms):
+                # Shapley effect
+                shapley_indices[perm, i] += delta_c[i_p, :, i]
+                shapley_indices_2[perm] += delta_c[i_p, :, 0]**2
 
-            # First order effect
-            first_indices[perm[-1]] += c_hat[i_p, -2]
-            first_indices_2[perm[-1]] += c_hat[i_p, -2, 0]**2
-            n_first[perm[-1]] += 1
+                # Total effect
+                total_indices[perm[0], i] += c_hat[i_p, 0, i]
+                total_indices_2[perm[0]] += c_hat[i_p, 0, 0]**2
+                n_total[perm[0], i] += 1
+
+                # First order effect
+                first_indices[perm[-1], i] += c_hat[i_p, -2, i]
+                first_indices_2[perm[-1]] += delta_c[i_p, -2, 0]**2
+                n_first[perm[-1], i] += 1
             
         N_total = n_perms / dim if estimation_method == 'exact' else n_total
         N_first = n_perms / dim if estimation_method == 'exact' else n_first
@@ -351,21 +364,24 @@ class ShapleyIndices(BaseIndices):
         output_variance = variance[np.newaxis]
         shapley_indices = shapley_indices / n_perms / output_variance
         total_indices = total_indices / N_total / output_variance
-        vsob = first_indices / N_first / output_variance
-        first_indices = 1. - vsob
+        first_indices = first_indices / N_first / output_variance
 
         if estimation_method == 'random':
             output_variance_2 = output_variance[:, 0]
             shapley_indices_2 = shapley_indices_2 / n_perms / output_variance_2**2
             shapley_indices_SE = np.sqrt((shapley_indices_2 - shapley_indices[:, 0]**2) / n_perms)
+
             total_indices_2 = total_indices_2 / N_total_2 / output_variance_2**2
             total_indices_SE = np.sqrt((total_indices_2 - total_indices[:, 0]**2) / N_total_2)
-            vsob_2 = first_indices_2 / N_first_2 / output_variance_2**2
-            first_indices_SE = np.sqrt((vsob_2 - vsob[:, 0]**2) / N_first_2)
+
+            first_indices_2 = first_indices_2 / N_first_2 / output_variance_2**2
+            first_indices_SE = np.sqrt((first_indices_2 - first_indices[:, 0]**2) / N_first_2)
         else:
             shapley_indices_SE = None
             total_indices_SE = None
             first_indices_SE = None
+            
+        first_indices = 1. - first_indices
 
         indice_results = SensitivityResults(
                 first_indices=first_indices, 

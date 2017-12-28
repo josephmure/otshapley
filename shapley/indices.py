@@ -1,9 +1,7 @@
 import openturns as ot
 import numpy as np
 import pandas as pd
-
 from scipy import stats
-
 from collections import OrderedDict
 
 from .utils import DF_NAMES
@@ -53,7 +51,7 @@ class BaseIndices(object):
 
 
 class SensitivityResults(object):
-    """
+    """Class to gather the sensitivity analysis results
     """
     def __init__(self, first_indices=None, total_indices=None, shapley_indices=None, true_first_indices=None,
                  true_total_indices=None, true_shapley_indices=None, shapley_indices_SE=None, total_indices_SE=None, first_indices_SE=None, estimation_method=None):
@@ -110,11 +108,7 @@ class SensitivityResults(object):
                 df = pd.melt(df.T, value_name=DF_NAMES['val'])
                 df[feat_indices] = DF_NAMES['shap']
                 all_df.append(df)
-
-
             return pd.concat(all_df)
-
-
         else:
             print("Cant't compute asymptotical confidence intervals for exact method.")
 
@@ -257,17 +251,17 @@ class SensitivityResults(object):
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
         all_df = []
         if self._first_indices is not None:
-            df_first = panel_data(self._first_indices, columns=columns)
+            df_first = self.full_df_first_indices
             df_first_melt = pd.melt(df_first.T, value_name=DF_NAMES['val'])
             df_first_melt[feat_indices] = DF_NAMES['1st']
             all_df.append(df_first_melt)
         if self._total_indices is not None:
-            df_total = panel_data(self._total_indices, columns=columns)
+            df_total = self.full_df_total_indices
             df_total_melt = pd.melt(df_total.T, value_name=DF_NAMES['val'])
             df_total_melt[feat_indices] = DF_NAMES['tot']
             all_df.append(df_total_melt)
         if self._shapley_indices is not None:
-            df_shapley = panel_data(self._shapley_indices, columns=columns)
+            df_shapley = self.full_df_shapley_indices
             df_shapley_melt = pd.melt(df_shapley.T, value_name=DF_NAMES['val'])
             df_shapley_melt[feat_indices] = DF_NAMES['shap']
             all_df.append(df_shapley_melt)
@@ -329,7 +323,11 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
-        df = panel_data(self._first_indices, columns=columns)
+        if self.n_boot > 1:
+            s = 1
+        else:
+            s = 0            
+        df = panel_data(self._first_indices[:, s:], columns=columns)
         return df
 
     @property
@@ -338,7 +336,11 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
-        df = panel_data(self._total_indices, columns=columns)
+        if self.n_boot > 1:
+            s = 1
+        else:
+            s = 0            
+        df = panel_data(self._total_indices[:, s:], columns=columns)
         return df
 
     @property
@@ -347,45 +349,81 @@ class SensitivityResults(object):
         """
         dim = self.dim
         columns = ['$X_{%d}$' % (i+1) for i in range(dim)]
-        df = panel_data(self._shapley_indices, columns=columns)
+        if self.n_boot > 1:
+            s = 1
+        else:
+            s = 0
+        df = panel_data(self._shapley_indices[:, s:], columns=columns)
         return df
 
     @property
     def df_first_indices(self):
         """
         """
-        df = melt_kriging(self.full_df_first_indices)
-        return df
+        df_all = []
+        df = self.full_df_first_indices
+        if self.n_realization > 1:
+            df_kriging = melt_kriging(df).drop(DF_NAMES['gp'], axis=1)
+            df_all.append(df_kriging)
+        if self.n_boot > 1:
+            df_boot = melt_boot(df).drop(DF_NAMES['mc'], axis=1)
+            df_all.append(df_boot)
+        return pd.concat(df_all)
 
     @property
     def df_total_indices(self):
         """
         """
-        df = melt_kriging(self.full_df_total_indices)
-        return df
+        df_all = []
+        df = self.full_df_total_indices
+        if self.n_realization > 1:
+            df_kriging = melt_kriging(df).drop(DF_NAMES['gp'], axis=1)
+            df_all.append(df_kriging)
+        if self.n_boot > 1:
+            df_boot = melt_boot(df).drop(DF_NAMES['mc'], axis=1)
+            df_all.append(df_boot)
+        return pd.concat(df_all)
 
     @property
     def df_shapley_indices(self):
         """
         """
-        df = melt_kriging(self.full_df_shapley_indices)
-        return df
+        df_all = []
+        df = self.full_df_shapley_indices
+        if self.n_realization > 1:
+            df_kriging = melt_kriging(df).drop(DF_NAMES['gp'], axis=1)
+            df_all.append(df_kriging)
+        if self.n_boot > 1:
+            df_boot = melt_boot(df).drop(DF_NAMES['mc'], axis=1)
+            df_all.append(df_boot)
+        return pd.concat(df_all)
 
 
 def melt_kriging(df):
     """
     """
-    df_boot = df.mean(level=[DF_NAMES['var'], DF_NAMES['gp']])
-    df_boot_melt = pd.melt(df_boot.T, value_name=DF_NAMES['val'])
-    df_boot_melt['Error'] = DF_NAMES['gp']
+    df_kriging = df.mean(level=[DF_NAMES['var'], DF_NAMES['gp']])
+    df_kriging_melt = df_kriging.reset_index()
+    df_kriging_melt['Error'] = DF_NAMES['gp']
+    
+    return df_kriging_melt
 
-    df_kriging = df.mean(level=[DF_NAMES['var'], DF_NAMES['mc']])
-    df_kriging_melt = pd.melt(df_kriging.T, value_name=DF_NAMES['val'])
-    df_kriging_melt['Error'] = DF_NAMES['mc']
+def melt_boot(df):
+    """
+    """
+    df_boot = df.mean(level=[DF_NAMES['var'], DF_NAMES['mc']])
+    df_boot_melt = df_boot.reset_index()
+    df_boot_melt['Error'] = DF_NAMES['mc']
 
-    df = pd.concat([df_boot_melt.drop(DF_NAMES['gp'], axis=1), df_kriging_melt.drop(DF_NAMES['mc'], axis=1)])
+    return df_boot_melt
+
+def melt_all(df):
+    
+    df_boot_melt = melt_boot(df)
+    df_kriging_melt = melt_kriging(df)
+    
+    df = pd.concat([df_kriging_melt.drop(DF_NAMES['gp'], axis=1), df_boot_melt.drop(DF_NAMES['mc'], axis=1)])
     return df
-
 
 def panel_data(data, columns=None):
     """

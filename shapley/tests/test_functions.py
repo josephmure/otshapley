@@ -4,9 +4,20 @@ import openturns as ot
 from shapley.model import ProbabilisticModel
 
 def is_independent(dist):
+    """Check if the distribution has independent inputs.
+
+    Parameters
+    ----------
+    dist : ot.Distribution,
+        An multivariate OpenTURNS distribution object.
+
+    Return
+    ------
+    is_ind : bool,
+        True if the distribution is independent, False otherwise.
     """
-    """
-    return np.all(np.tril(np.asarray(dist.getCorrelation()), k=-1) == 0.)
+    is_ind = np.all(np.tril(np.asarray(dist.getCorrelation()), k=-1) == 0.)
+    return is_ind
 
 class Ishigami(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function
@@ -30,7 +41,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.314, 0.442, 0.]
+            return np.asarray([0.314, 0.442, 0.])
         else:
             return None
         
@@ -39,7 +50,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.56, 0.44, 0.24]
+            return np.asarray([0.56, 0.44, 0.24])
         else:
             return None        
         
@@ -48,7 +59,7 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return [0.437, 0.441, 0.12]
+            return np.asarray([0.437, 0.441, 0.12])
         else:
             return None
 
@@ -280,7 +291,7 @@ class AdditiveGaussian(ProbabilisticModel):
 
     @property
     def shapley_indices(self):
-        """
+        """Return the Shapley indices
         """
         dim = self.dim
         beta = self.beta
@@ -315,7 +326,17 @@ class AdditiveGaussian(ProbabilisticModel):
 
 
 def product_func(x, beta=None):
-    """
+    """Product function.
+
+    Parameters
+    ----------
+    x : array,
+        The input variables. The shape should be d x n, with d the dimension and n the sample-size.
+
+    Returns
+    -------
+    y : float or array,
+        The function output. If n > 1, the function returns an array.
     """
     x = np.asarray(x)
     if x.ndim == 1:
@@ -332,7 +353,17 @@ def product_func(x, beta=None):
 
 
 def additive_func(x, beta=None):
-    """
+    """Additive function.
+
+    Parameters
+    ----------
+    x : array,
+        The input variables. The shape should be d x n, with d the dimension and n the sample-size.
+
+    Returns
+    -------
+    y : float or array,
+        The function output. If n > 1, the function returns an array.
     """
     x = np.asarray(x)
     if x.ndim == 1:
@@ -357,8 +388,8 @@ def ishigami_func(x, a=7, b=0.1):
 
     Returns
     -------
-    y : int or array,
-        The function output.
+    y : float or array,
+        The function output. If n > 1, the function returns an array.
     """
     x = np.asarray(x).squeeze()
     if x.ndim == 1:
