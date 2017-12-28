@@ -1,10 +1,10 @@
 import numpy as np
 import openturns as ot
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 try:
     import gpflow
 except:
-    pass
-from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+    print('Could not load gpflow')
 
 from .model import MetaModel
 from .utils import test_q2

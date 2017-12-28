@@ -1,9 +1,7 @@
 import openturns as ot
 import numpy as np
 import pandas as pd
-
 from scipy import stats
-
 from collections import OrderedDict
 
 from .utils import DF_NAMES
