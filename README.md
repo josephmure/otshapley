@@ -1,23 +1,32 @@
-[![build status](https://gitlab.com/CEMRACS17/shapley-indices/badges/master/build.svg)](https://gitlab.com/CEMRACS17/shapley-indices/commits/master)
-[![coverage report](https://gitlab.com/CEMRACS17/shapley-indices/badges/master/coverage.svg)](https://gitlab.com/CEMRACS17/shapley-indices/commits/master)
-# Shapley indices library
+[![build status](https://gitlab.com/CEMRACS17/shapley-effects/badges/master/build.svg)](https://gitlab.com/CEMRACS17/shapley-effects/commits/master)
+[![coverage report](https://gitlab.com/CEMRACS17/shapley-effects/badges/master/coverage.svg)](https://gitlab.com/CEMRACS17/shapley-effects/commits/master)
+# Shapley effects
 
-This python library estimates the Shapley indices in the field of sensitivity analysis of model output. The module also propose to estimate the well known Sobol' indices. For costly computational model, the module also propose to approximate with a surrogate model (or meta-model). The available meta-model are the Gaussian Process and the Random Forest.
+Shapley-effects, or `shapley`, is a Python library that estimates the Shapley effects in the field of Sensitivity Analysis of Model Output [[1]](http://epubs.siam.org/doi/pdf/10.1137/16M1097717). Several features are available with the library. It is possible to:
+
+- compute the Shapley effects,
+- compute the Sobol' indices for independent and independent inputs,
+- build a surrogate model to substitute a costly numerical black-box function.
+
+The library is built on top of NumPy, OpenTURNS and other libraries. It is also validated and compared to the [`sensitivity`](https://github.com/cran/sensitivity/) package from the R software. 
+
+## Important links
+
+- Example notebooks are available in the [example directory](https://gitlab.com/CEMRACS17/shapley-effects/tree/dev/examples).
+- Issues: [https://gitlab.com/CEMRACS17/shapley-effects/issues](https://gitlab.com/CEMRACS17/shapley-effects/issues)
 
 ## Installation
 
-The package has various dependencies and we strongly recommend the use of Anaconda for the installation. The dependencies are :
+Various dependencies are necessary in this library and we strongly recommend the use of [Anaconda](https://anaconda.org/) for the installation. The dependencies are:
 
 - Numpy,
 - Scipy,
 - Pandas,
-- Scikit-Learn,
 - OpenTURNS,
-- Tensorflow,
-- GPy,
+- Scikit-Learn,
 - GPflow.
 
-Scikit-learn is used to build random-forest and Kriging models. OpenTURNS is very convenient tool to create probabilistic distributions. Tensorflow and GPy are two dependencies of GPflow which generates Kriging models from GPy using Tensorflow.
+Scikit-learn is used to build kriging and random-forest models. OpenTURNS is a very convenient tool to define probabilistic distributions. GPflow which generates kriging models from GPy using Tensorflow.
 
 Optional dependencies are also necessary for various task like plotting or tuning the model:
 
@@ -32,7 +41,7 @@ conda install numpy pandas scikit-learn tensorflow matplotlib seaborn scikit-opt
 conda install -c conda-forge openturns gpy
 ```
 
-The package GPflow is not availaible on Anaconda or PyPi. Thus it must be installed from the source. First clone the GitHub repository:
+The package GPflow is not available on Anaconda or PyPi. Thus it must be installed from the source. First clone the GitHub repository:
 
 ```
 git clone https://github.com/GPflow/GPflow.git
@@ -43,3 +52,11 @@ Then, inside the GPflow folder, execute the command:
 ```
 pip install .
 ```
+
+## Acknowledgements
+
+The library has been developed at the [CEMRACS 2017](http://smai.emath.fr/cemracs/cemracs17/) with the help of Bertrand Iooss, Roman Sueur, Veronique Maume-Deschamps and Clementine Prieur.
+
+## References
+
+[1] Owen, A. B., & Prieur, C. (2017). On Shapley value for measuring importance of dependent inputs. SIAM/ASA Journal on Uncertainty Quantification, 5(1), 986-1002.
