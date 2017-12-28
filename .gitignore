@@ -12,6 +12,9 @@
 .vs/
 .cache/
 
+# Spyder files
+.spyproject/
+
 # Jupyter notebook files
 .ipynb_checkpoints/
 
@@ -23,6 +26,3 @@
 /build
 *.c
 *.c
-
-# Spyder files
-.spyproject/
