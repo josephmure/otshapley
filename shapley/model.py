@@ -17,8 +17,9 @@ class Model(object):
     model_func : callable,
         The model function.
     """
-    def __init__(self, model_func):
+    def __init__(self, model_func, name='Custom'):
         self.model_func = model_func
+        self.name = name
 
     def __call__(self, x):
         y = self._model_func(x)
@@ -63,12 +64,13 @@ class ProbabilisticModel(Model):
     def __init__(self, 
                  model_func, 
                  input_distribution,
+                 name='Custom',
                  first_sobol_indices=None,
                  total_sobol_indices=None,
                  shapley_indices=None):
         #super(ProbabilisticModel, self).__init__(
         #    model_func=model_func)
-        Model.__init__(self, model_func=model_func)
+        Model.__init__(self, model_func=model_func, name=name)
 
         self.input_distribution = input_distribution
         self.first_sobol_indices = first_sobol_indices
@@ -246,11 +248,12 @@ class MetaModel(ProbabilisticModel):
     input_distribution : ot.DistributionImplementation or None, optional (default=None)
         The probabilistic input distribution.
     """
-    def __init__(self, model=None, input_distribution=None):
+    def __init__(self, model=None, input_distribution=None, name='Custom'):
         if isinstance(model, ProbabilisticModel):
             super(MetaModel, self).__init__(
                 model_func=None,
                 input_distribution=input_distribution,
+                name=name,
                 first_sobol_indices=model.first_sobol_indices,
                 total_sobol_indices=model.total_sobol_indices,
                 shapley_indices=model.shapley_indices
@@ -258,7 +261,8 @@ class MetaModel(ProbabilisticModel):
         else:
             super(MetaModel, self).__init__(
                 model_func=None,
-                input_distribution=input_distribution)
+                input_distribution=input_distribution,
+                name=name)
         self.true_model = model
 
     def generate_sample(self, n_sample=50, sampling='lhs', sampling_type='uniform', alpha=0.999):
