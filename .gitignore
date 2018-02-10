@@ -26,3 +26,6 @@
 /build
 *.c
 *.c
+
+# Pypi files
+/dist

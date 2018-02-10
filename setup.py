@@ -14,8 +14,9 @@ setup(
     long_description=open('README.md').read(),
     url='https://gitlab.com/CEMRACS17/shapley-effects',
     author='Nazih BENOUMECHIARA & Kevin ELIE-DIT-COSAQUE',
+    author_email = 'nazih.benoumechiara@gmail.com',
     license='MIT',
-    keywords='sensitivity analysis shapley effects depedencies',
+    keywords=['sensitivity analysis', 'shapley', 'effects', 'depedencies'],
     packages=['shapley'],
     install_requires=required
 )
