@@ -1,4 +1,5 @@
 # Always prefer setuptools over distutils
+
 try:
     from setuptools import setup
 except ImportError:
