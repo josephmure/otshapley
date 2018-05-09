@@ -20,7 +20,7 @@ class RandomForestModel(MetaModel):
     input_distribution : ot.DistributionImplementation
         The input distribution for the sampling of the observations.
     """
-    def __init__(self, model, input_distribution):
+    def __init__(self, model=None, input_distribution=None):
         MetaModel.__init__(self, model=model, input_distribution=input_distribution)
         self.reg_rf = None
 

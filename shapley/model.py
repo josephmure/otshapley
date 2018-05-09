@@ -252,7 +252,7 @@ class MetaModel(ProbabilisticModel):
         if isinstance(model, ProbabilisticModel):
             super(MetaModel, self).__init__(
                 model_func=None,
-                input_distribution=input_distribution,
+                input_distribution=model.input_distribution,
                 name=name,
                 first_sobol_indices=model.first_sobol_indices,
                 total_sobol_indices=model.total_sobol_indices,
@@ -341,7 +341,8 @@ def sample_dist(dist, n_sample, sampling):
         input_sample = dist.getSample(n_sample)
     else:
         raise ValueError('Unknow sampling: {0}'.format(sampling))
-    return input_sample
+
+    return np.asarray(input_sample)
 
 def change_distribution(dist, sampling_type, alpha):
     """Slightly change the distribution for a custom sampling.

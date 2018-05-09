@@ -428,7 +428,7 @@ def melt_all(df):
 def panel_data(data, columns=None):
     """
     """
-    dim, n_boot, n_realization = data.shape
+    _, n_boot, n_realization = data.shape
     names = (DF_NAMES['var'], DF_NAMES['mc'], DF_NAMES['gp'])
     idx = [columns, range(n_boot), range(n_realization)]
     index = pd.MultiIndex.from_product(idx, names=names)
