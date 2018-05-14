@@ -94,11 +94,14 @@ class ProbabilisticModel(Model):
             self._dim = dist.getDimension()
             self._margins = [dist.getMarginal(i) for i in range(self._dim)]
             self._copula = dist.getCopula()
+        else:
+            self._dim = None
+            self._margins = None
+            self._copula = None
 
         self._input_distribution = dist
 
-    # TODO: make the computation of the property possible for functions of true
-    # indices.
+    # TODO: make the computation of the property possible for functions of true indices.
     @property
     def first_sobol_indices(self):
         """The true first-order sobol indices.
@@ -107,7 +110,8 @@ class ProbabilisticModel(Model):
 
     @first_sobol_indices.setter
     def first_sobol_indices(self, indices):
-        check_indices(indices, self._dim)
+        if indices is not None:
+            check_indices(indices, self._dim)
         self._first_sobol_indices = indices
 
     @property
@@ -118,7 +122,8 @@ class ProbabilisticModel(Model):
 
     @total_sobol_indices.setter
     def total_sobol_indices(self, indices):
-        check_indices(indices, self._dim)
+        if indices is not None:
+            check_indices(indices, self._dim)
         self._total_sobol_indices = indices
 
     @property
@@ -129,7 +134,8 @@ class ProbabilisticModel(Model):
 
     @shapley_indices.setter
     def shapley_indices(self, indices):
-        check_indices(indices, self._dim)
+        if indices is not None:
+            check_indices(indices, self._dim)
         self._shapley_indices = indices
 
     @property
@@ -248,17 +254,7 @@ class MetaModel(ProbabilisticModel):
     """
 
     def __init__(self, model=None, input_distribution=None, name='Custom'):
-        if isinstance(model, ProbabilisticModel):
-            super(MetaModel, self).__init__(
-                model_func=None,
-                input_distribution=model.input_distribution,
-                name=name,
-                first_sobol_indices=model.first_sobol_indices,
-                total_sobol_indices=model.total_sobol_indices,
-                shapley_indices=model.shapley_indices
-            )
-        else:
-            super(MetaModel, self).__init__(
+        ProbabilisticModel.__init__(self,
                 model_func=None,
                 input_distribution=input_distribution,
                 name=name)
@@ -293,8 +289,12 @@ class MetaModel(ProbabilisticModel):
     @input_sample.setter
     def input_sample(self, sample):
         n_sample, dim = sample.shape
-        assert dim == self._dim, "Dimension should be the same as the input_distribution: %d != %d" % (
-            dim, self._dim)
+        # If the distribution is unknown, the dimension is unknown
+        if self._input_distribution is None:
+            self._dim = dim
+        else:
+            assert dim == self._dim, "Different dimensions: {} != {}".format(
+                dim, self._dim)
         self._n_sample = n_sample
         self._input_sample = sample
 
@@ -384,10 +384,9 @@ def change_distribution(dist, sampling_type, alpha):
 
 
 def check_indices(indices, dim):
-    if indices is not None:
-        assert len(indices) == dim, \
-            "Incorrect number of indices: %d!=%d" % (
-                len(indices), dim)
+    assert len(indices) == dim, \
+        "Incorrect number of indices: %d!=%d" % (
+            len(indices), dim)
 
 
 def check_margins(margins, dim):
