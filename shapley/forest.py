@@ -54,7 +54,6 @@ class RandomForestModel(MetaModel):
             y = np.zeros((n_sample, n_estimators))
             for i, tree in enumerate(self.reg_rf.estimators_):
                 y[:, i] = tree.predict(X)
-
             return y
 
         self.predict = self.reg_rf.predict

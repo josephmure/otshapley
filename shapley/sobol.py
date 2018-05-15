@@ -1,6 +1,8 @@
 import numpy as np
 import openturns as ot
 
+from numpy.random import randint
+
 from .indices import BaseIndices, SensitivityResults
 
 
@@ -39,7 +41,7 @@ class SobolIndices(BaseIndices):
             The sampling size of the Monte-Carlo estimation.
 
         n_realization : int, optional (default=1)
-            The number of realization of the meta-model.            
+            The number of realization of the meta-model.
         """
 
         assert callable(model), "The model should be a function"
@@ -61,7 +63,6 @@ class SobolIndices(BaseIndices):
             self._input_distribution.getSample(n_sample))
 
         # The modified samples for each dimension
-
         all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
         if n_realization == 1:
             output_sample_1 = model(input_sample_1)
@@ -282,7 +283,7 @@ class SobolIndices(BaseIndices):
             if n_boot > 1:
                 boot_idx = np.zeros((n_boot, n_sample), dtype=int)
                 boot_idx[0] = range(n_sample)
-                boot_idx[1:] = np.random.randint(
+                boot_idx[1:] = randint(
                     0, n_sample, size=(n_boot-1, n_sample))
 
             Y1 = self.all_output_sample_1[i]

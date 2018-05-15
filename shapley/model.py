@@ -76,6 +76,8 @@ class ProbabilisticModel(Model):
                  shapley_indices=None):
         Model.__init__(self, model_func=model_func, name=name)
         self.input_distribution = input_distribution
+        if (input_distribution is None) and (first_sobol_indices is not None):
+            raise AttributeError('If you know the true indices, you should specify the distribution')
         self.first_sobol_indices = first_sobol_indices
         self.total_sobol_indices = total_sobol_indices
         self.shapley_indices = shapley_indices
@@ -254,10 +256,16 @@ class MetaModel(ProbabilisticModel):
     """
 
     def __init__(self, model=None, input_distribution=None, name='Custom'):
-        ProbabilisticModel.__init__(self,
-                model_func=None,
-                input_distribution=input_distribution,
-                name=name)
+        if not isinstance(model, ProbabilisticModel):
+            model = ProbabilisticModel(
+                model, input_distribution=input_distribution)
+        ProbabilisticModel.__init__(self, model_func=None,
+                                    input_distribution=model.input_distribution,
+                                    name=name,
+                                    first_sobol_indices=model.first_sobol_indices,
+                                    total_sobol_indices=model.total_sobol_indices,
+                                    shapley_indices=model.shapley_indices
+                                    )
         self.true_model = model
 
     def generate_sample(self, n_sample, sampling='lhs', sampling_type='uniform', alpha=0.999):
@@ -324,11 +332,8 @@ class MetaModel(ProbabilisticModel):
         self.score_q2_cv = q2
         return q2
 
-    def __call__(self, X, n_estimators):
-        if n_estimators == 1:
-            y = self.predict(X)
-        else:
-            y = self._model_func(X, n_estimators)
+    def __call__(self, X):
+        y = self._model_func(X)
         return y
 
 

@@ -61,22 +61,11 @@ class KrigingModel(MetaModel):
             # The resulting meta_model function
             def meta_model(X, n_realization):
                 n_sample = X.shape[0]
-                if n_sample <= MAX_N_SAMPLE:
+                if n_sample > MAX_N_SAMPLE:
+                    raise MemoryError('Sample size is too large.')
+                else:
                     kriging_vector = ot.KrigingRandomVector(self.kriging_result, X)
                     results = np.asarray(kriging_vector.getSample(n_realization)).T
-                else:
-                    state = np.random.randint(0, 1E7)
-                    for max_n in range(MAX_N_SAMPLE, 1, -1):
-                        if n_sample % max_n == 0:
-                            break
-                    results = []
-                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
-                    for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
-                        ot.RandomGenerator.SetSeed(state)
-                        kriging_vector = ot.KrigingRandomVector(self.kriging_result, X_p)
-                        results.append(np.asarray(kriging_vector.getSample(n_realization)).T)
-                        print('i_p:', i_p)
-                    results = np.concatenate(results)
                 return results
 
             def predict(X):
@@ -91,32 +80,23 @@ class KrigingModel(MetaModel):
             kriging_result.fit(self.input_sample, self.output_sample)
             self.kriging_result = kriging_result
 
-            def meta_model(X, n_realization=1):
+            def meta_model(X, n_realization):
                 """
                 """
                 n_sample = X.shape[0]
-                if n_sample < MAX_N_SAMPLE:
-                    results = kriging_result.sample_y(X, n_samples=n_realization)
+                if n_sample > MAX_N_SAMPLE:
+                    raise MemoryError('Sample size is too large.')
                 else:
-                    print('Sample size is too large. A loop is done to save memory.')
-                    state = np.random.randint(0, 1E7)
-
-                    for max_n in range(MAX_N_SAMPLE, 1, -1):
-                        if n_sample % max_n == 0:
-                            break
-                    results = []
-                    print("%d splits of size %d" % (int(n_sample/max_n), max_n))
-                    for i_p, X_p in enumerate(np.split(X, int(n_sample/max_n), axis=0)):
-                        results.append(kriging_result.sample_y(X_p, n_samples=n_realization, random_state=state))
-                        print('i_p:', i_p)
-                    results = np.concatenate(results)
+                    results = kriging_result.sample_y(X, n_samples=n_realization)
+                    
                 return results
             
             predict = kriging_result.predict
         elif library == 'gpflow':
             self.covariance = kernel
             self.basis = basis_type
-            gp = gpflow.models.GPR(self.input_sample, self.output_sample.reshape(-1, 1), kern=self.covariance, mean_function=self.basis)
+            gp = gpflow.models.GPR(
+                self.input_sample, self.output_sample[:, np.newaxis], kern=self.covariance, mean_function=self.basis)
             gp.likelihood.variance = 1.E-6
             gp.likelihood.trainable = True
             gp.compile()
@@ -167,6 +147,12 @@ class KrigingModel(MetaModel):
         self.score_q2_loo = q2
         return q2
 
+    def __call__(self, X, n_realization=1):
+        if n_realization == 1:
+            y = self.predict(X)
+        else:
+            y = self._model_func(X, n_realization)
+        return y
 
 def q2_loo(input_sample, output_sample, library, covariance, basis=None):
     """Leave One Out estimation of Q2.
