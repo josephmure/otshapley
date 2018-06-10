@@ -4,7 +4,7 @@ import openturns as ot
 from numpy.random import randint
 
 from .indices import BaseIndices, SensitivityResults
-
+from .model import Model
 
 class SobolIndices(BaseIndices):
     """The Sobol indices.
@@ -301,12 +301,21 @@ class SobolIndices(BaseIndices):
         if np.isnan(total_indices).all():
             total_indices = None
 
+        if isinstance(self.model, Model):
+            true_first_indices = self.model.first_sobol_indices
+            true_total_indices = self.model.total_sobol_indices
+            true_shapley_indices = self.model.shapley_indices
+        else:
+            true_first_indices = None
+            true_total_indices = None
+            true_shapley_indices = None
+
         results = SensitivityResults(
             first_indices=first_indices,
             total_indices=total_indices,
-            true_first_indices=self.model.first_sobol_indices,
-            true_total_indices=self.model.total_sobol_indices,
-            true_shapley_indices=self.model.shapley_indices)
+            true_first_indices=true_first_indices,
+            true_total_indices=true_total_indices,
+            true_shapley_indices=true_shapley_indices)
         return results
 
 

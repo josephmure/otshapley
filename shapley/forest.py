@@ -11,24 +11,28 @@ from .indices import SensitivityResults
 
 class RandomForestModel(MetaModel):
     """Class to build a random forest model.
-    
+
     Parameters
     ----------
     model : callable
         The true function.
-        
+
     input_distribution : ot.DistributionImplementation
         The input distribution for the sampling of the observations.
     """
+
     def __init__(self, model=None, input_distribution=None):
-        MetaModel.__init__(self, model=model, input_distribution=input_distribution)
+        MetaModel.__init__(self, model=model,
+                           input_distribution=input_distribution)
         self.reg_rf = None
 
-    def build(self, n_estimators=10, method='random-forest', n_iter_search=None, n_fold=3, min_samples_leaf=1):
+    def build(self, n_estimators=10, method='random-forest', n_iter_search=None, n_fold=3, min_samples_leaf=1, n_jobs=-1, 
+        max_features='auto', oob_score=False, random_state=None):
         """
         """
         if method == 'random-forest':
-            regressor = RandomForestRegressor(n_estimators=n_estimators, oob_score=True, min_samples_leaf=min_samples_leaf, n_jobs=-1)
+            regressor = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf,
+                                              n_jobs=n_jobs, max_features=max_features, oob_score=oob_score, random_state=random_state)
         elif method == 'extra-tree':
             regressor = ExtraTreesRegressor(n_estimators=n_estimators)
 
@@ -39,7 +43,7 @@ class RandomForestModel(MetaModel):
                 "min_samples_leaf": Integer(1, 20)
             }
             bayes_search = BayesSearchCV(regressor, search_spaces=search_spaces,
-                                               n_iter=n_iter_search, cv=n_fold, n_jobs=7)
+                                         n_iter=n_iter_search, cv=n_fold, n_jobs=7)
 
             bayes_search.fit(self.input_sample, self.output_sample)
             self.reg_rf = bayes_search.best_estimator_
@@ -48,7 +52,8 @@ class RandomForestModel(MetaModel):
 
         def meta_model(X, n_estimators):
             if self.reg_rf is None or self.reg_rf.n_estimators != n_estimators:
-                self.reg_rf = RandomForestRegressor(n_estimators=n_estimators, oob_score=True).fit(self.input_sample, self.output_sample)
+                self.reg_rf = RandomForestRegressor(n_estimators=n_estimators, oob_score=True).fit(
+                    self.input_sample, self.output_sample)
 
             n_sample = X.shape[0]
             y = np.zeros((n_sample, n_estimators))
@@ -58,7 +63,8 @@ class RandomForestModel(MetaModel):
 
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
-        
+
+
 def get_pos(dim, j1, j2):
     """
     """
