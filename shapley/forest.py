@@ -24,11 +24,11 @@ class RandomForestModel(MetaModel):
         MetaModel.__init__(self, model=model, input_distribution=input_distribution)
         self.reg_rf = None
 
-    def build(self, n_estimators=10, method='random-forest', n_iter_search=None, n_fold=3):
+    def build(self, n_estimators=10, method='random-forest', n_iter_search=None, n_fold=3, min_samples_leaf=1):
         """
         """
         if method == 'random-forest':
-            regressor = RandomForestRegressor(n_estimators=n_estimators, oob_score=True)
+            regressor = RandomForestRegressor(n_estimators=n_estimators, oob_score=True, min_samples_leaf=min_samples_leaf, n_jobs=-1)
         elif method == 'extra-tree':
             regressor = ExtraTreesRegressor(n_estimators=n_estimators)
 

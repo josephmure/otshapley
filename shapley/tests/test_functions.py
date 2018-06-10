@@ -182,6 +182,7 @@ class AdditiveGaussian(ProbabilisticModel):
         else:
             beta = np.asarray(beta)
 
+        self.model_func = lambda x: additive_func(x, beta)
         self._beta = beta
 
     @property
