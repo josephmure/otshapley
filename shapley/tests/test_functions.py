@@ -19,21 +19,35 @@ def is_independent(dist):
     is_ind = np.all(np.tril(np.asarray(dist.getCorrelation()), k=-1) == 0.)
     return is_ind
 
+def ishigami_variance(a, b):
+    return 0.5 + a**2/8 + b**2*np.pi**8/18 + b * np.pi**4/5
+
+def ishigami_partial_variance(a, b):
+    v1 = 0.5 * (1 + b * np.pi**4 / 5)**2
+    v2 = a**2 / 8
+    v3 = 0
+    return v1, v2, v3
+
+def ishigami_total_variance(a, b):
+    v13 = b**2 * np.pi**8 * 8 / 225
+    v1, v2, v3 = ishigami_partial_variance(a, b)
+    return v1 + v13, v2, v3 + v13
+
 class Ishigami(ProbabilisticModel):
     """This class collect all the information about the Ishigami test function
     for sensitivity analysis.
     """
-    def __init__(self):
+    def __init__(self, a=7., b=0.1):
         dim = 3
         margins = [ot.Uniform(-np.pi, np.pi)]*dim
         copula = ot.IndependentCopula(dim)
         ProbabilisticModel.__init__(
             self,            
             model_func=ishigami_func, 
-            input_distribution=ot.ComposedDistribution(margins, copula),
-            first_sobol_indices=[0.314, 0.442, 0.],
-            total_sobol_indices=[0.56, 0.44, 0.24],
-            shapley_indices=[0.437, 0.441, 0.12])
+            input_distribution=ot.ComposedDistribution(margins, copula)
+        )
+        self.a = a
+        self.b = b
         self.name = 'Ishigami'
         
     @ProbabilisticModel.first_sobol_indices.getter
@@ -41,7 +55,11 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return np.asarray([0.314, 0.442, 0.])
+            a, b = self.a, self.b
+            var_y = ishigami_variance(a, b)
+            partial_var = ishigami_partial_variance(a, b)
+            si = [vi / var_y for vi in partial_var]
+            return np.asarray(si)
         else:
             return None
         
@@ -50,7 +68,11 @@ class Ishigami(ProbabilisticModel):
         """
         """
         if is_independent(self._input_distribution):
-            return np.asarray([0.56, 0.44, 0.24])
+            a, b = self.a, self.b
+            var_y = ishigami_variance(a, b)
+            total_var = ishigami_total_variance(a, b)
+            si = [vi / var_y for vi in total_var]
+            return np.asarray(si)
         else:
             return None        
         
