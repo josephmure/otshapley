@@ -5,7 +5,8 @@ from skgarden import RandomForestQuantileRegressor
 from sklearn.ensemble.forest import _generate_unsampled_indices
 from skopt.space import Integer
 
-from .model import MetaModel
+from .model import MetaModel, change_distribution, sample_dist
+from .utils import q2_cv
 from .indices import SensitivityResults
 
 
@@ -63,6 +64,26 @@ class RandomForestModel(MetaModel):
 
         self.predict = self.reg_rf.predict
         self.model_func = meta_model
+
+    def compute_score_q2_cv(self, n_sample=100, sampling='lhs', sampling_type='classic', alpha=0.99, by_tree=False):
+        """Cross Validation estimation of Q2.
+        """
+        dist = change_distribution(
+            self._input_distribution, sampling_type, alpha)
+        x = sample_dist(dist, n_sample, sampling)
+
+        ytrue = self.true_model(x)
+        if by_tree:
+            ntree = self.reg_rf.n_estimators
+            q2 = np.zeros((ntree, ))
+            for i, tree in enumerate(self.reg_rf.estimators_):
+                ypred = tree.predict(x)
+                q2[i] = q2_cv(ytrue, ypred)
+        else:
+            ypred = self.predict(x)
+            q2 = q2_cv(ytrue, ypred)
+        self.score_q2_cv = q2
+        return q2
 
 
 def get_pos(dim, j1, j2):
