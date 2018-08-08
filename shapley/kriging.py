@@ -256,11 +256,11 @@ def get_covariance(kernel, library, dim=None):
                 raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
         elif library == 'gpflow':
             if kernel == 'matern':
-                covariance = gpflow.kernels.Matern52(dim)
+                covariance = gpflow.kernels.Matern52(dim, ARD = True)
             elif kernel == 'exponential':
-                covariance = gpflow.kernels.Exponential(dim)
+                covariance = gpflow.kernels.Exponential(dim, ARD = True)
             elif kernel == 'RBF':
-                covariance = gpflow.kernels.RBF(dim)
+                covariance = gpflow.kernels.RBF(dim, ARD = True)
             else:
                 raise ValueError('Unknow kernel {0} for library {1}'.format(kernel, library))
         else:

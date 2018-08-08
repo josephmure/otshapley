@@ -355,7 +355,7 @@ def sample_dist(dist, n_sample, sampling):
         lhs.setRandomShift(False) # centered
         lhs.setAlwaysShuffle(True) # randomized
         spaceFillingMinDist = ot.SpaceFillingMinDist()
-        optimalLHSAlgorithmMinDist = ot.MonteCarloLHS(lhs, 1000, spaceFillingMinDist)
+        optimalLHSAlgorithmMinDist = ot.MonteCarloLHS(lhs, 10000, spaceFillingMinDist)
         input_sample = optimalLHSAlgorithmMinDist.generate()
     elif sampling == 'monte-carlo':
         input_sample = dist.getSample(n_sample)
