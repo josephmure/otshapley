@@ -352,7 +352,11 @@ def sample_dist(dist, n_sample, sampling):
     """
     if sampling == 'lhs':
         lhs = ot.LHSExperiment(dist, n_sample)
-        input_sample = lhs.generate()
+        lhs.setRandomShift(False) # centered
+        lhs.setAlwaysShuffle(True) # randomized
+        spaceFillingMinDist = ot.SpaceFillingMinDist()
+        optimalLHSAlgorithmMinDist = ot.MonteCarloLHS(lhs, 1000, spaceFillingMinDist)
+        input_sample = optimalLHSAlgorithmMinDist.generate()
     elif sampling == 'monte-carlo':
         input_sample = dist.getSample(n_sample)
     else:
