@@ -1,8 +1,13 @@
 import numpy as np
 import openturns as ot
+import tensorflow as tf
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 try:
     import gpflow
+    from gpflow.params import Parameter
+    from gpflow.mean_functions import MeanFunction
+    from gpflow.decors import params_as_tensors
+    from gpflow import settings
 except:
     print('Could not load gpflow')
 
@@ -10,6 +15,32 @@ from .model import MetaModel
 from .utils import test_q2
 
 MAX_N_SAMPLE = 15000
+MAXITER = 10000
+
+
+class QuadraticTrendGPflow(MeanFunction):
+    """
+    Class to calculate a mean quadratic function for the trend of the process
+    using the gpflow package
+    y_i = A x_i + b
+    """
+    def __init__(self, A=None, b=None):
+        """
+        A is a matrix which maps each element of X to Y, b is an additive
+        constant.
+        If X has N rows and D columns, and Y is intended to have Q columns,
+        then A must be 2*D x Q, b must be a vector of length Q.
+        """
+        A = np.ones((2, 1)) if A is None else A
+        b = np.zeros(1) if b is None else b
+        MeanFunction.__init__(self)
+        self.A = Parameter(np.atleast_2d(A), dtype = settings.float_type)
+        self.b = Parameter(b, dtype = settings.float_type)
+
+    @params_as_tensors
+    def __call__(self, X):
+        X = tf.concat([X, tf.pow(X,2)], 1)
+        return tf.matmul(X, self.A) + self.b
 
 
 class KrigingModel(MetaModel):
@@ -100,7 +131,7 @@ class KrigingModel(MetaModel):
             gp.likelihood.variance = 1.E-6
             gp.likelihood.trainable = True
             gp.compile()
-            gpflow.train.ScipyOptimizer().minimize(gp)
+            gpflow.train.ScipyOptimizer().minimize(gp, maxiter = MAXITER)
 
             def meta_model(X, n_realization):
                 """
@@ -205,11 +236,9 @@ def get_basis(basis_type, dim, library):
         if basis_type == 'constant':
             basis = gpflow.mean_functions.Constant()
         elif basis_type == 'linear':
-            basis = gpflow.mean_functions.Linear(np.zeros((dim, 1)), 0.)
+            basis = gpflow.mean_functions.Linear(np.ones((dim, 1)), 0.)
         elif basis_type == 'quadratic':
-            const1 = gpflow.mean_functions.Constant(np.ones(1))
-            const2 = gpflow.mean_functions.Constant(np.ones(1))
-            basis = gpflow.mean_functions.Product(const1, const2)
+            basis = QuadraticTrendGPflow(np.ones((2*dim, 1)), 0.)
         elif basis_type == 'sum-product':
             const1_1 = gpflow.mean_functions.Constant(1)
             const1_2 = gpflow.mean_functions.Constant(1)
