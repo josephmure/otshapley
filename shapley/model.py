@@ -407,7 +407,7 @@ def check_margins(margins, dim):
 
 
 def check_copula(copula, dim):
-    assert isinstance(copula, (ot.CopulaImplementation, ot.DistributionImplementationPointer)), \
+    assert isinstance(copula, (ot.model_copula.Distribution, ot.model_copula.CopulaImplementation, ot.model_copula.DistributionImplementation)), \
         "The copula should be an OpenTURNS implementation: {}".format(
             type(copula))
     assert copula.getDimension() == dim, \
