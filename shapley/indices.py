@@ -150,7 +150,9 @@ class SensitivityResults(object):
         """The first sobol sensitivity estimation.
         """
         if self._first_indices is not None:
-            return self._first_indices.reshape(self.dim, -1).mean(axis=1)
+            #return self._first_indices.reshape(self.dim, -1).mean(axis=1)
+            return self._first_indices.reshape(self.dim, -1)
+
 
     @first_indices.setter
     def first_indices(self, indices):

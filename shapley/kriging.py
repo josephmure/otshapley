@@ -15,7 +15,7 @@ from .model import MetaModel
 from .utils import test_q2
 
 MAX_N_SAMPLE = 15000
-MAXITER = 10000
+MAXITER = 100000
 
 
 class QuadraticTrendGPflow(MeanFunction):
