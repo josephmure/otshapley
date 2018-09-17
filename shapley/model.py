@@ -81,6 +81,7 @@ class ProbabilisticModel(Model):
         self.first_sobol_indices = first_sobol_indices
         self.total_sobol_indices = total_sobol_indices
         self.shapley_indices = shapley_indices
+        self.output_variance = None
 
     @property
     def input_distribution(self):
@@ -139,6 +140,16 @@ class ProbabilisticModel(Model):
         if indices is not None:
             check_indices(indices, self._dim)
         self._shapley_indices = indices
+
+    @property
+    def output_variance(self):
+        """The true output variance.        
+        """
+        return self._output_variance
+
+    @output_variance.setter
+    def output_variance(self, var):
+        self._output_variance = var
 
     @property
     def margins(self):
