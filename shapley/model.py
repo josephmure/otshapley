@@ -172,7 +172,7 @@ class ProbabilisticModel(Model):
 
     @copula.setter
     def copula(self, copula):
-        check_copula(copula, self._dim)
+        # check_copula(copula, self._dim)
         self._input_distribution = ot.ComposedDistribution(
             self._margins, copula)
         self._copula = copula

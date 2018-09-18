@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_id(pos, dim=3):
+def get_id(pos, dim):
     k = 0
     for i in range(1, dim):
         for j in range(i):

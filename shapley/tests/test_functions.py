@@ -2,6 +2,7 @@ import numpy as np
 import openturns as ot
 
 from shapley.model import ProbabilisticModel
+from shapley.tests.utils import get_id
 
 def is_independent(dist):
     """Check if the distribution has independent inputs.
@@ -187,8 +188,14 @@ class AdditiveGaussian(ProbabilisticModel):
     """This class collect all the information about the Additive Gaussian test 
     function for sensitivity analysis.
     """
-    def __init__(self, dim, beta=None):
-        margins = [ot.Normal()]*dim
+    def __init__(self, dim, means=None, std=None, beta=None):
+        
+        if means is None:
+            means = np.zeros((dim, ))
+        if std is None:
+            std = np.ones((dim, ))
+        
+        margins = [ot.Normal(means[i], std[i]) for i in range(dim)]
         copula = ot.NormalCopula(dim)
         ProbabilisticModel.__init__(
                 self, 
@@ -196,7 +203,7 @@ class AdditiveGaussian(ProbabilisticModel):
                 input_distribution=ot.ComposedDistribution(margins, copula))
         self.beta = beta
         self.name = 'Additive Gaussian'
-        self.type_indice = 'full'
+        self.type_indice = 'ind'
 
     @property
     def beta(self):
@@ -221,130 +228,35 @@ class AdditiveGaussian(ProbabilisticModel):
         return var_y
 
     @ProbabilisticModel.first_sobol_indices.getter
-    def first_sobol_indices(self):
-        
-        if self.type_indice == 'full':
-            beta = self.beta
-            dim = self.dim
-            sigma = np.asarray(self.input_distribution.getCovariance())
-            print(sigma)
-            var_y = self.output_variance
-            indices = np.zeros((dim,))
+    def first_sobol_indices(self):        
+        var_y = self.output_variance
+        beta = self.beta
+        dim = self.dim
+        sigma = np.asarray(self.input_distribution.getCovariance())
+        corr = np.asarray(self.input_distribution.getCorrelation())
+        input_variance = sigma.diagonal()
+        input_std = np.sqrt(input_variance)
+        indices = np.zeros((dim, ))
+        if self.type_indice == 'ind': 
             for j in range(dim):
                 c_j = np.asarray([i for i in range(dim) if i != j])
                 inv_j = np.linalg.inv(sigma[c_j, :][:, c_j])
-                #inv_j = inv_sigma[:, c_j][c_j, :]
-                var_j = (beta.dot(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))).dot(beta)
-                var_j = np.sum(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))
-                print(var_j)
-                indices[j] = var_j / var_y
-        
-            return indices
-
-    # @property
-    # def first_sobol_indices(self):
-    #     """
-    #     """
-    #     #beta = self.beta
-    #     #dim = self.dim
-    #     #sigma = np.asarray(self.input_distribution.getCovariance())
-    #     #print(sigma)
-    #     #inv_sigma = np.linalg.inv(sigma)
-    #     #var_y = (beta.dot(sigma)).dot(beta)
-    #     #indices = np.zeros((dim,))
-    #     #for j in range(dim):
-    #     #    c_j = np.asarray([i for i in range(dim) if i != j])
-    #     #    inv_j = np.linalg.inv(sigma[c_j, :][:, c_j])
-    #     #    #inv_j = inv_sigma[:, c_j][c_j, :]
-    #     #    var_j = (beta.dot(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))).dot(beta)
-    #     #    var_j = np.sum(sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))
-    #     #    print(var_j)
-    #     #    indices[j] = var_j / var_y
-    
-    #     #return indices
-
-    #     dim = self.dim
-    #     beta = self.beta
-    #     sigma = np.asarray(self.input_distribution.getCovariance())
-    #     var_y = (beta.dot(sigma)).dot(beta)
-    #     sigma_x = np.sqrt(sigma.diagonal())
-
-    #     # Effects without correlation
-    #     s_uncorr = (beta * sigma_x)**2
-
-    #     # Effects with correlation
-    #     theta = np.asarray(self.copula.getParameter())
-    #     dep_pair = theta != 0
-    #     rho = theta[dep_pair]
-    #     s_corr = np.zeros((dim, ))
-    #     if dim == 3 and len(rho) <= 1:
-    #         rho = rho.item() if len(rho) == 1 else 0
-    #         s_corr[0] = 1
-    #         s_corr[1] = (1 + rho * sigma_x[2])**2
-    #         s_corr[2] = (rho + sigma_x[2])**2
-    
-    #         indices = (s_corr)/ var_y
-    #         return indices 
-    #     elif dim == 2:
-    #         indices = np.asarray([(1 + 2*theta[0] + theta[0]**2)/var_y]*dim)
-    #         return indices
-    #     else:
-    #         return self._first_sobol_indices
-
-    # @first_sobol_indices.setter
-    # def first_sobol_indices(self, indices):
-    #     self._first_sobol_indices = indices
-
-    @property
-    def total_sobol_indices(self):
-        """
-        """
-        #beta = self.beta
-        #dim = self.dim
-        #sigma = np.asarray(self.input_distribution.getCovariance())
-        #inv_sigma = np.linalg.inv(sigma)
-        #var_y = (beta.dot(sigma)).dot(beta)
-        #indices = np.zeros((dim,))
-        #for j in range(dim):
-        #    c_j = np.asarray([i for i in range(dim) if i != j])
-        #    inv_j = np.linalg.inv(sigma[c_j, :][:, c_j])
-        #    #inv_j = inv_sigma[:, c_j][c_j, :]
-        #    var_j = (beta.dot((sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :]))).dot(beta)
-        #    indices[j] = var_j / var_y
-    
-        #return indices
-
-        dim = self.dim
-        beta = self.beta
-        sigma = np.asarray(self.input_distribution.getCovariance())
-        var_y = (beta.dot(sigma)).dot(beta)
-        sigma_x = np.sqrt(sigma.diagonal())
-
-        # Effects without correlation
-        s_uncorr = (beta * sigma_x)**2
-
-        # Effects with correlation
-        theta = np.asarray(self.copula.getParameter())
-        dep_pair = theta != 0
-        rho = theta[dep_pair]
-        s_corr = np.zeros((dim, ))
-        if dim == 3 and len(rho) <= 1:
-            rho = rho.item() if len(rho) == 1 else 0
-            s_corr[0] = 1
-            s_corr[1] = 1. - rho**2
-            s_corr[2] = sigma_x[2]**2 * ( 1 - rho **2)
-    
-            indices = (s_corr)/ var_y
-            return indices
-        elif dim == 2:
-            indices = np.asarray([(1.- theta[0]**2)/var_y]*dim)
-            return indices
+                tmp_j = sigma - (sigma[:, c_j].dot(inv_j)).dot(sigma[c_j, :])
+                var_j = (beta.dot(tmp_j)).dot(beta)
+                indices[j] = var_j        
+            return indices / var_y
         else:
-            return self._total_sobol_indices
+            for j in range(dim):
+                tmp_j = beta[j] * input_std[j]
+                for j2 in range(dim):
+                    if j2 != j:
+                        tmp_j += beta[j2] * input_std[j2] * corr[j, j2]
+                indices[j] = tmp_j**2
+            return indices / var_y
 
-    @total_sobol_indices.setter
-    def total_sobol_indices(self, indices):
-        self._total_sobol_indices = indices
+    @ProbabilisticModel.total_sobol_indices.getter
+    def total_sobol_indices(self):  
+        return self.first_sobol_indices
 
     @property
     def shapley_indices(self):
