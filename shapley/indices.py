@@ -205,7 +205,8 @@ class SensitivityResults(object):
         """The total Sobol sensitivity indicies estimations.
         """
         if self._total_indices is not None:
-            return self._total_indices.reshape(self.dim, -1).mean(axis=1)
+            #return self._total_indices.reshape(self.dim, -1).mean(axis=1)
+            return self._total_indices.reshape(self.dim, -1)
 
     @total_indices.setter
     def total_indices(self, indices):
