@@ -8,6 +8,7 @@ try:
     from gpflow.mean_functions import MeanFunction
     from gpflow.decors import params_as_tensors
     from gpflow import settings
+    LOAD_TS = True
 except:
     LOAD_TS = False
     print('Could not load gpflow')
