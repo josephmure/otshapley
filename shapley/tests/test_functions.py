@@ -472,17 +472,13 @@ def ishigami_func(x, a=7, b=0.1):
         The function output. If n > 1, the function returns an array.
     """
     x = np.asarray(x).squeeze()
-    if x.ndim == 1:
-        ndim = x.shape[0]
-    else:
-        ndim = x.shape[1]
-
-    assert ndim == 3, "Dimension problem %d != %d " % (3, ndim)
-
-    if ndim == 1:
+    if x.shape[0] == x.size:
+        dim = x.shape[0]
         y = np.sin(x[0]) + a*np.sin(x[1])**2 + b*x[2]**4 * np.sin(x[0])
     else:
-        y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + \
-            b*x[:, 2]**4 * np.sin(x[:, 0])
+        dim = x.shape[1]
+        y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + b*x[:, 2]**4 * np.sin(x[:, 0])
+
+    assert dim == 3, "Dimension problem %d != %d " % (3, ndim)
 
     return y
