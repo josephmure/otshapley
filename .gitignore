@@ -29,3 +29,5 @@
 
 # Pypi files
 /dist
+
+.vscode
