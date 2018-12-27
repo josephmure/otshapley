@@ -477,7 +477,8 @@ def ishigami_func(x, a=7, b=0.1):
         y = np.sin(x[0]) + a*np.sin(x[1])**2 + b*x[2]**4 * np.sin(x[0])
     else:
         dim = x.shape[1]
-        y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + b*x[:, 2]**4 * np.sin(x[:, 0])
+        y = np.sin(x[:, 0]) + a*np.sin(x[:, 1])**2 + \
+            b*x[:, 2]**4 * np.sin(x[:, 0])
 
     assert dim == 3, "Dimension problem %d != %d " % (3, ndim)
 
