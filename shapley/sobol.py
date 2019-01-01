@@ -6,6 +6,7 @@ from numpy.random import randint
 from .indices import BaseIndices, SensitivityResults
 from .model import Model
 
+
 class SobolIndices(BaseIndices):
     """The Sobol indices.
 
@@ -62,15 +63,17 @@ class SobolIndices(BaseIndices):
         input_sample_2 = np.asarray(
             self._input_distribution.getSample(n_sample))
 
+        self.input_sample_1 = input_sample_1
+        self.input_sample_2 = input_sample_2
         # The modified samples for each dimension
         all_output_sample_2t = np.zeros((dim, n_sample, n_realization))
         if n_realization == 1:
             output_sample_1 = model(input_sample_1)
             output_sample_2 = model(input_sample_2)
-            output_sample_1 = np.c_[[output_sample_1]
-                                    * dim].reshape(dim, n_sample, n_realization)
-            output_sample_2 = np.c_[[output_sample_2]
-                                    * dim].reshape(dim, n_sample, n_realization)
+            output_sample_1 = np.c_[[output_sample_1] *
+                                    dim].reshape(dim, n_sample, n_realization)
+            output_sample_2 = np.c_[[output_sample_2] *
+                                    dim].reshape(dim, n_sample, n_realization)
         else:
             output_sample_1 = np.zeros((dim, n_sample, n_realization))
             output_sample_2 = np.zeros((dim, n_sample, n_realization))
