@@ -4,9 +4,9 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from shapley import ShapleyIndices
-from shapley.tests import AdditiveGaussian
-from shapley.tests.utils import true_gaussian_full_ind_sobol
+from otshapley import ShapleyIndices
+from otshapley.tests import AdditiveGaussian
+from otshapley.tests.utils import true_gaussian_full_ind_sobol
 
 if None:
     ## Model parameters

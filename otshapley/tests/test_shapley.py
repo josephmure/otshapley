@@ -1,8 +1,8 @@
 import numpy as np
 import openturns as ot
 
-from shapley import ShapleyIndices
-from shapley.tests.test_functions import Ishigami, AdditiveGaussian
+from otshapley import ShapleyIndices
+from otshapley.tests.test_functions import Ishigami, AdditiveGaussian
 
 N_BOOT = 1000
 N_PERMS = None

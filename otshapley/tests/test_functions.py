@@ -1,8 +1,8 @@
 import numpy as np
 import openturns as ot
 
-from shapley.model import ProbabilisticModel
-from shapley.tests.utils import get_id
+from otshapley.model import ProbabilisticModel
+from otshapley.tests.utils import get_id
 
 
 def is_independent(dist):
@@ -312,6 +312,7 @@ class AdditiveGaussian(ProbabilisticModel):
         var_y = self.output_variance
         beta = self.beta
         dim = self.dim
+        beta = self.beta
         sigma = np.asarray(self.input_distribution.getCovariance())
         corr = np.asarray(self.input_distribution.getCorrelation())
         input_variance = sigma.diagonal()

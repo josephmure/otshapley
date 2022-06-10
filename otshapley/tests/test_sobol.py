@@ -4,9 +4,9 @@ import numpy as np
 import openturns as ot
 import pytest
 
-from shapley.sobol import SobolIndices
-from shapley.tests.test_functions import Ishigami, AdditiveGaussian
-from shapley.tests.utils import true_gaussian_full_ind_sobol
+from otshapley.sobol import SobolIndices
+from otshapley.tests.test_functions import Ishigami, AdditiveGaussian
+from otshapley.tests.utils import true_gaussian_full_ind_sobol
 
 N_SAMPLE_WITHOUT_BOOT = 80000
 N_SAMPLE_WITH_BOOT = 1000
