@@ -1,7 +1,7 @@
 import numpy as np
 import openturns as ot
 
-from shapley.model import ProbabilisticModel
+from otshapley.model import ProbabilisticModel
 
 def is_independent(dist):
     """Check if the distribution has independent inputs.

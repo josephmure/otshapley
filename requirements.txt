@@ -1,8 +1,5 @@
 numpy
 scipy
 pandas
-scikit-learn
-gpflow
-scikit-optimize
 matplotlib
 seaborn

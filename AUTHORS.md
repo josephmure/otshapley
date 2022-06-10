@@ -13,3 +13,5 @@ We also thank those that contributed to the establishment of this library:
 - Roman Sueur,
 
 A special thanks to the authors of the R package [sensitivity](https://cran.r-project.org/web/packages/sensitivity/index.html) which helps us validate our results.
+
+The *otshapley* fork, which updates the code to Python 3.9+ and removes surrogate model-related functionality and dependencies, was made by Joseph Muré.
