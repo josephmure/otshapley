@@ -13,7 +13,7 @@ The library is mainly built on top of NumPy and OpenTURNS. It is also validated 
 
 ## Important links
 
-- Example notebooks are available in the [example directory](https://gitlab.com/CEMRACS17/shapley-effects/tree/dev/examples).
+- Example notebooks are available in the [example directory](https://github.com/josephmure/otshapley/tree/master/examples).
 
 ## Installation
 
