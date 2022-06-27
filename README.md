@@ -26,7 +26,7 @@ The library is mainly built on top of NumPy and OpenTURNS. It is also validated 
 
 ### Dependencies
 
-Various dependencies are necessary in this library and we strongly recommend the use of [Anaconda](https://anaconda.org/) for the installation. The dependencies are:
+Various dependencies are necessary in this library and we strongly recommend the use of [Miniconda](https://docs.conda.io/en/latest/miniconda.html) for the installation. The dependencies are:
 
 - Numpy,
 - Scipy,
